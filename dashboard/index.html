@@ -1,0 +1,1130 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EmirSense-1 Mission Control</title>
+<meta name="description" content="Live telemetry and command dashboard for EmirSense-1, a 1U environmental monitoring CubeSat built for the SatForge competition.">
+<meta name="theme-color" content="#04030D">
+<meta property="og:title" content="EmirSense-1 Mission Control">
+<meta property="og:description" content="Live LoRa telemetry, orbit modes, payload, power, attitude and commands for the EmirSense-1 1U CubeSat.">
+<meta property="og:image" content="/assets/og-image.jpg">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Reem+Kufi:wght@500;600&display=swap">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)} [hidden]{display:none!important}
+/* Layout: one long cinematic scroll — orbit hero, then mission sections stacked "lower by lower", with a floating glass dock that tracks where you are. */
+:root{
+  color-scheme: dark;
+  --void:#04030D; --night:#0A0826;
+  --ink:#F4F2FF; --muted:#ABA7D2; --faint:#726E9C;
+  --glass:rgba(24,19,58,.52); --glass-strong:rgba(30,24,70,.72); --edge:rgba(255,255,255,.12); --edge-hi:rgba(255,255,255,.22);
+  --sun:#FFC24B; --cyan:#2EE6D6; --violet:#A07CFF; --eclipse:#7084E0; --magenta:#FF4FD8;
+  --uae-green:#00B36B; --uae-red:#FF3B5C;
+  --good:#3BE38B; --warn:#FFB020; --crit:#FF4D6D;
+  --f-display:'Unbounded','Arial Black',system-ui,sans-serif;
+  --f-body:'Manrope',-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --f-ar:'Reem Kufi','Geeza Pro','Noto Kufi Arabic','Segoe UI',sans-serif;
+  --r-xl:30px; --r-lg:22px; --r-md:16px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth; background:var(--void)}
+body{margin:0; background:var(--void); color:var(--ink); font-family:var(--f-body); font-size:15px; line-height:1.5; overflow-x:hidden; padding-bottom:120px}
+body::before{content:""; position:fixed; inset:0 0 auto; height:env(safe-area-inset-top,0px); z-index:60; background:var(--void)}
+button{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--cyan); outline-offset:3px; border-radius:12px}
+
+/* ---------- sky ---------- */
+#sky{position:fixed; inset:0; width:100%; height:100%; z-index:-3; display:block}
+.pattern{position:fixed; inset:0; z-index:-2; pointer-events:none; opacity:.07;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='.8'%3E%3Crect x='30' y='30' width='36' height='36'/%3E%3Crect x='30' y='30' width='36' height='36' transform='rotate(45 48 48)'/%3E%3Ccircle cx='48' cy='48' r='8'/%3E%3Cpath d='M0 48h12M84 48h12M48 0v12M48 84v12'/%3E%3C/g%3E%3C/svg%3E");
+  -webkit-mask-image:radial-gradient(ellipse 70% 60% at 50% 40%, transparent 30%, #000 90%); mask-image:radial-gradient(ellipse 70% 60% at 50% 40%, transparent 30%, #000 90%)}
+
+.wrap{max-width:1200px; margin:0 auto; padding-left:max(16px, env(safe-area-inset-left,0px)); padding-right:max(16px, env(safe-area-inset-right,0px))}
+
+/* ---------- top status bar ---------- */
+.topbar{position:sticky; top:env(safe-area-inset-top,0px); z-index:50; padding-top:12px}
+.bar{display:flex; align-items:center; gap:12px; justify-content:space-between; padding:8px 10px 8px 12px; border-radius:999px;
+  background:rgba(14,11,38,.55); border:1px solid var(--edge); backdrop-filter:blur(20px) saturate(170%); -webkit-backdrop-filter:blur(20px) saturate(170%);
+  box-shadow:0 10px 40px rgba(0,0,0,.35)}
+.brand{color:inherit; text-decoration:none; display:flex; align-items:center; gap:10px; min-width:0}
+.brand svg{width:34px; height:34px; flex:none}
+.brand b{font-family:var(--f-display); font-weight:700; font-size:14px; letter-spacing:.02em; white-space:nowrap}
+.brand small{display:block; font-size:11px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; white-space:nowrap}
+.clocks{display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end}
+.pill{display:inline-flex; align-items:center; gap:7px; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,.06); border:1px solid var(--edge);
+  font-family:var(--f-mono); font-size:12px; white-space:nowrap; font-variant-numeric:tabular-nums}
+.pill i{font-style:normal; color:var(--muted); font-family:var(--f-body); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase}
+.dot{width:8px; height:8px; border-radius:50%; background:var(--faint); flex:none}
+.dot.live{background:var(--good); box-shadow:0 0 0 0 rgba(59,227,139,.6); animation:ping 1.8s infinite}
+.dot.sim{background:var(--magenta); box-shadow:0 0 12px var(--magenta)}
+.dot.los{background:var(--warn)}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(59,227,139,.55)}70%{box-shadow:0 0 0 10px rgba(59,227,139,0)}100%{box-shadow:0 0 0 0 rgba(59,227,139,0)}}
+@media (max-width:720px){ .hide-sm{display:none!important} .brand small{display:none} }
+
+/* ---------- hero ---------- */
+.hero{position:relative; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.2fr); align-items:center; gap:24px; min-height:min(88vh,820px); padding-block:24px 64px}
+.hero-text{position:relative; z-index:2; min-width:0}
+.eyebrow{display:inline-flex; align-items:center; gap:8px; font-family:var(--f-mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--cyan)}
+.eyebrow::before{content:""; width:22px; height:2px; background:linear-gradient(90deg,var(--uae-green),var(--cyan))}
+h1{font-family:var(--f-display); font-weight:700; font-size:clamp(34px,6vw,80px); white-space:nowrap; line-height:.95; letter-spacing:-.02em; margin:16px 0 10px; text-wrap:balance;
+  background:linear-gradient(100deg,#fff 0%,#E9E3FF 40%,var(--cyan) 70%,var(--magenta) 100%); -webkit-background-clip:text; background-clip:text; color:transparent}
+.arabic{font-family:var(--f-ar); font-size:22px; color:var(--sun); margin:0 0 14px; direction:rtl; text-align:left}
+.lead{color:var(--muted); font-size:17px; max-width:46ch; margin:0 0 22px}
+.cta{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:28px}
+.btn{display:inline-flex; align-items:center; gap:8px; border:1px solid var(--edge-hi); background:rgba(255,255,255,.08); padding:11px 18px; border-radius:999px; cursor:pointer;
+  font-weight:600; font-size:14px; transition:transform .2s, background .2s, border-color .2s}
+.btn:hover{transform:translateY(-1px); background:rgba(255,255,255,.14)}
+.btn.primary{background:linear-gradient(120deg,var(--cyan),var(--violet) 55%,var(--magenta)); border-color:transparent; color:#0A0626}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn[disabled]{opacity:.45; cursor:not-allowed; transform:none}
+.hud{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; max-width:460px}
+.chip{padding:12px 14px; border-radius:var(--r-md); background:var(--glass); border:1px solid var(--edge); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px)}
+.chip span{display:block; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
+.chip b{display:block; font-family:var(--f-mono); font-weight:500; font-size:20px; font-variant-numeric:tabular-nums; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.scene{position:relative; height:min(78vh,680px); min-width:0}
+#scene{position:absolute; inset:0; width:100%; height:100%; -webkit-mask-image:radial-gradient(ellipse 72% 72% at 50% 50%, #000 62%, transparent 100%); mask-image:radial-gradient(ellipse 72% 72% at 50% 50%, #000 62%, transparent 100%)}
+.scene-tag{position:absolute; left:50%; bottom:6%; transform:translateX(-50%); font-family:var(--f-mono); font-size:11px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; white-space:nowrap}
+.cue{position:absolute; left:50%; bottom:18px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; gap:6px; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); text-decoration:none}
+.cue .mouse{width:22px; height:34px; border:1.5px solid var(--muted); border-radius:12px; position:relative}
+.cue .mouse::after{content:""; position:absolute; left:50%; top:6px; width:3px; height:7px; margin-left:-1.5px; border-radius:2px; background:var(--cyan); animation:wheel 1.8s infinite}
+@keyframes wheel{0%{opacity:0; transform:translateY(0)}30%{opacity:1}100%{opacity:0; transform:translateY(10px)}}
+@media (max-width:860px){
+  .hero{grid-template-columns:1fr; min-height:auto; padding-block:8px 72px}
+  .scene{order:-1; height:360px}
+  .arabic{text-align:left}
+}
+
+/* ---------- sections ---------- */
+.sec{padding-block:88px 24px; scroll-margin-top:72px}
+.sec-head{display:grid; gap:10px; margin-bottom:28px; max-width:760px}
+.sec-head h2{font-family:var(--f-display); font-weight:700; font-size:clamp(28px,4vw,44px); line-height:1.05; letter-spacing:-.01em; margin:0; text-wrap:balance}
+.sec-head p{margin:0; color:var(--muted); font-size:16px; max-width:62ch}
+.tag{font-family:var(--f-mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; display:inline-flex; gap:8px; align-items:center}
+.tag::before{content:""; width:8px; height:8px; border-radius:50%; background:currentColor; box-shadow:0 0 12px currentColor}
+.glass{background:var(--glass); border:1px solid var(--edge); border-radius:var(--r-xl); backdrop-filter:blur(18px) saturate(140%); -webkit-backdrop-filter:blur(18px) saturate(140%); padding:22px; min-width:0}
+.grid{display:grid; gap:16px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:980px){ .g4{grid-template-columns:repeat(2,minmax(0,1fr))} .g3{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (max-width:640px){ .g2,.g3,.g4{grid-template-columns:1fr} .glass{padding:18px; border-radius:var(--r-lg)} }
+.label{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
+.big{font-family:var(--f-mono); font-size:34px; font-weight:500; font-variant-numeric:tabular-nums; line-height:1.1; margin-top:6px}
+.big small{font-size:15px; color:var(--muted); margin-left:4px}
+.note{font-size:13px; color:var(--faint)}
+.spark{width:100%; height:86px; display:block; margin-top:10px}
+.chart{width:100%; height:200px; display:block}
+.row{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap}
+.state{display:inline-flex; align-items:center; gap:7px; padding:5px 11px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid currentColor; white-space:nowrap}
+.state::before{content:""; width:7px; height:7px; border-radius:50%; background:currentColor}
+.s-good{color:var(--good)} .s-warn{color:var(--warn)} .s-crit{color:var(--crit)} .s-off{color:var(--faint)} .s-sun{color:var(--sun)} .s-ecl{color:var(--eclipse)}
+
+/* reveal */
+.reveal{transition:opacity .9s ease, transform .9s cubic-bezier(.2,.7,.2,1)}
+.js-reveal .reveal:not(.in){opacity:0; transform:translateY(36px)}
+
+/* ---------- orbit timeline ---------- */
+.timeline{position:relative; margin-top:40px}
+.tl-bar{display:flex; height:54px; border-radius:16px; overflow:hidden; border:1px solid var(--edge)}
+.tl-seg{position:relative; display:flex; align-items:center; padding:0 12px; font-size:12px; font-weight:700; color:#0A0626; min-width:0; overflow:hidden; white-space:nowrap}
+.tl-seg span{overflow:hidden; text-overflow:ellipsis}
+.tl-marker{position:absolute; top:-10px; bottom:-10px; width:3px; margin-left:-1.5px; background:#fff; border-radius:2px; box-shadow:0 0 14px #fff; transition:left .4s linear}
+.tl-marker::after{content:attr(data-t); position:absolute; top:-26px; left:50%; transform:translateX(-50%); font-family:var(--f-mono); font-size:11px; background:#fff; color:#0A0626; padding:2px 7px; border-radius:6px; white-space:nowrap}
+.tl-scale{display:flex; justify-content:space-between; font-family:var(--f-mono); font-size:11px; color:var(--faint); margin-top:8px}
+.mode-now{display:flex; gap:18px; align-items:center; flex-wrap:wrap; margin-top:22px}
+.mode-now h3{font-family:var(--f-display); font-size:26px; margin:0}
+.modes .glass{padding:18px; transition:border-color .3s, box-shadow .3s}
+.modes .glass.active{border-color:var(--c); box-shadow:0 0 0 1px var(--c), 0 20px 60px -20px var(--c)}
+.modes h4{margin:6px 0 4px; font-size:16px}
+.modes p{margin:0 0 10px; color:var(--muted); font-size:13px}
+.chips{display:flex; flex-wrap:wrap; gap:6px}
+.chips em{font-style:normal; font-size:11px; padding:3px 8px; border-radius:999px; background:rgba(255,255,255,.07); border:1px solid var(--edge); color:var(--ink)}
+.switch{display:inline-flex; align-items:center; gap:10px; cursor:pointer; font-weight:600; font-size:14px; background:none; border:0; padding:4px}
+.switch .track{width:46px; height:28px; border-radius:999px; background:rgba(255,255,255,.14); position:relative; transition:background .25s}
+.switch .track::after{content:""; position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:#fff; transition:transform .25s; box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.switch[aria-checked="true"] .track{background:var(--good)}
+.switch[aria-checked="true"] .track::after{transform:translateX(18px)}
+
+/* ---------- power ---------- */
+.gauge{position:relative; width:180px; height:180px; margin:6px auto 0}
+.gauge svg{width:100%; height:100%; transform:rotate(-90deg)}
+.gauge .center{position:absolute; inset:0; display:grid; place-content:center; text-align:center}
+.gauge .center b{font-family:var(--f-mono); font-size:36px; font-weight:500}
+.gauge .center span{font-size:12px; color:var(--muted)}
+.kv{display:grid; grid-template-columns:auto 1fr; gap:6px 16px; font-size:14px}
+.kv dt{color:var(--muted)} .kv dd{margin:0; text-align:right; font-family:var(--f-mono); font-variant-numeric:tabular-nums}
+.legend{display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--muted)}
+.legend i{display:inline-block; width:10px; height:3px; border-radius:2px; margin-right:6px; vertical-align:middle}
+
+/* ---------- attitude ---------- */
+.cube-stage{height:240px; display:grid; place-items:center; perspective:700px}
+.cube{width:110px; height:110px; position:relative; transform-style:preserve-3d; transition:transform .6s ease-out}
+.face{position:absolute; inset:0; border:3px solid #C93A4C; background:linear-gradient(135deg,rgba(220,220,235,.9),rgba(150,150,170,.85)); box-shadow:inset 0 0 0 6px rgba(201,58,76,.75)}
+.face.f1{transform:translateZ(55px)} .face.f2{transform:rotateY(180deg) translateZ(55px)} .face.f3{transform:rotateY(90deg) translateZ(55px)}
+.face.f4{transform:rotateY(-90deg) translateZ(55px)} .face.f6{transform:rotateX(-90deg) translateZ(55px)}
+.face.f5{transform:rotateX(90deg) translateZ(55px); background:linear-gradient(135deg,#1B2350,#0B1030); box-shadow:inset 0 0 0 6px rgba(201,58,76,.75)}
+.face.f5::after{content:""; position:absolute; inset:16px; background:repeating-linear-gradient(90deg,rgba(80,120,255,.45) 0 1px,transparent 1px 12px),repeating-linear-gradient(0deg,rgba(80,120,255,.45) 0 1px,transparent 1px 12px),#121A48}
+.axisline{font-family:var(--f-mono); font-size:12px; color:var(--muted); text-align:center}
+.meter{height:12px; border-radius:999px; background:rgba(255,255,255,.08); overflow:hidden; position:relative; margin-top:10px}
+.meter i{position:absolute; top:0; bottom:0; border-radius:999px; transition:all .4s}
+.meter.center::before{content:""; position:absolute; left:50%; top:-2px; bottom:-2px; width:1px; background:var(--edge-hi)}
+
+/* ---------- comms ---------- */
+.cmds{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px}
+@media (max-width:900px){ .cmds{grid-template-columns:repeat(2,minmax(0,1fr))} }
+.cmd{text-align:left; padding:14px; border-radius:var(--r-md); background:rgba(255,255,255,.05); border:1px solid var(--edge); cursor:pointer; transition:transform .15s, border-color .2s, background .2s; min-width:0}
+.cmd:hover{transform:translateY(-2px); border-color:var(--violet); background:rgba(160,124,255,.12)}
+.cmd:active{transform:scale(.98)}
+.cmd b{display:block; font-family:var(--f-mono); font-size:12.5px; color:var(--violet); font-weight:500; overflow:hidden; text-overflow:ellipsis}
+.cmd span{display:block; font-size:13px; color:var(--ink); margin-top:4px}
+.tablebox{overflow-x:auto; margin-top:6px}
+table{width:100%; border-collapse:collapse; font-size:13px}
+th,td{text-align:left; padding:9px 10px; border-bottom:1px solid var(--edge); white-space:nowrap}
+th{font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); font-weight:600}
+td.mono,.mono{font-family:var(--f-mono); font-variant-numeric:tabular-nums}
+.empty{color:var(--faint); font-size:13px; padding:14px 2px}
+
+/* ---------- log ---------- */
+.log{max-height:340px; overflow:auto; font-family:var(--f-mono); font-size:12.5px; display:grid; gap:2px}
+.log div{display:grid; grid-template-columns:72px 1fr; gap:10px; padding:6px 8px; border-radius:8px}
+.log div:nth-child(odd){background:rgba(255,255,255,.03)}
+.log time{color:var(--faint)}
+.raw{font-family:var(--f-mono); font-size:12px; color:var(--cyan); background:rgba(0,0,0,.35); border:1px solid var(--edge); border-radius:12px; padding:12px; overflow-x:auto; white-space:pre}
+
+/* ---------- dock ---------- */
+#dock{position:fixed; left:50%; bottom:calc(14px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%); z-index:55; max-width:calc(100vw - 24px)}
+.dock-in{position:relative; display:flex; gap:2px; padding:6px; border-radius:999px; overflow-x:auto; scrollbar-width:none;
+  background:rgba(18,14,44,.58); border:1px solid var(--edge-hi); backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%);
+  box-shadow:0 18px 50px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.12)}
+.dock-in::-webkit-scrollbar{display:none}
+.dock-ind{position:absolute; top:6px; bottom:6px; left:0; width:0; border-radius:999px; background:linear-gradient(120deg,rgba(46,230,214,.35),rgba(160,124,255,.35),rgba(255,79,216,.3)); border:1px solid rgba(255,255,255,.25); transition:left .35s cubic-bezier(.3,.8,.3,1), width .35s cubic-bezier(.3,.8,.3,1); pointer-events:none}
+.dock-in a{position:relative; z-index:1; display:flex; align-items:center; gap:7px; padding:9px 15px; border-radius:999px; color:var(--muted); text-decoration:none; font-size:13px; font-weight:600; white-space:nowrap; transition:color .25s}
+.dock-in a.on{color:#fff}
+.dock-in a .d{width:6px; height:6px; border-radius:50%; background:currentColor; opacity:.7}
+.toast{position:fixed; left:50%; bottom:calc(84px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%) translateY(20px); opacity:0; z-index:70; max-width:min(520px, calc(100vw - 32px));
+  padding:12px 16px; border-radius:16px; background:var(--glass-strong); border:1px solid var(--edge-hi); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); font-size:14px; transition:all .35s; pointer-events:none}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+footer{padding-block:40px 10px; color:var(--faint); font-size:12px; text-align:center}
+
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .reveal,.tl-marker,.cube,.meter i,.dock-ind{transition:none!important}
+  .js-reveal .reveal:not(.in){opacity:1; transform:none}
+  .dot.live,.cue .mouse::after{animation:none}
+}
+</style>
+</head>
+<body>
+
+<canvas id="sky" aria-hidden="true"></canvas>
+<div class="pattern" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="wrap">
+    <div class="bar">
+      <a class="brand" href="/" aria-label="EmirSense-1 home">
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <defs><linearGradient id="ig" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2EE6D6"/><stop offset="1" stop-color="#A07CFF"/></linearGradient></defs>
+          <circle cx="32" cy="32" r="29" fill="#0B0A2A"/>
+          <path d="M32 3 A29 29 0 0 1 61 32" stroke="#00B36B" stroke-width="4" fill="none"/>
+          <path d="M61 32 A29 29 0 0 1 32 61" stroke="#FFFFFF" stroke-width="4" fill="none"/>
+          <path d="M32 61 A29 29 0 0 1 3 32" stroke="#1A1A1A" stroke-width="4" fill="none"/>
+          <path d="M3 32 A29 29 0 0 1 32 3" stroke="#FF3B5C" stroke-width="4" fill="none"/>
+          <ellipse cx="32" cy="33" rx="20" ry="8" transform="rotate(-20 32 33)" stroke="url(#ig)" stroke-width="2" fill="none"/>
+          <g transform="translate(25 24)"><path d="M7 0 L14 4 L7 8 L0 4 Z" fill="#1E2A6A"/><path d="M0 4 L7 8 L7 16 L0 12 Z" fill="#C93A4C"/><path d="M14 4 L7 8 L7 16 L14 12 Z" fill="#D9D9E6"/></g>
+          <path d="M48 14 l1.2 2.8 2.8 1.2 -2.8 1.2 -1.2 2.8 -1.2 -2.8 -2.8 -1.2 2.8 -1.2z" fill="#FFC24B"/>
+        </svg>
+        <div><b>EmirSense-1</b><small>Mission Control</small></div>
+      </a>
+      <div class="clocks">
+        <span class="pill hide-sm"><i>GST</i><span id="gst">--:--:--</span></span>
+        <span class="pill"><i>MET</i><span id="met">00:00:00</span></span>
+        <span class="pill" id="srcPill"><span class="dot sim" id="srcDot"></span><span id="srcText">Simulation</span></span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- HERO -->
+  <section id="overview" class="wrap" data-nav="Overview">
+    <div class="hero">
+      <div class="hero-text">
+        <span class="eyebrow">SatForge · 1U CubeSat · Ground segment</span>
+        <h1>EmirSense&#8209;1</h1>
+        <p class="arabic" lang="ar">مهمة الرصد البيئي</p>
+        <p class="lead">Live telemetry and commanding for our 1U environmental monitoring CubeSat, received over a 433&nbsp;MHz LoRa ground link.</p>
+        <div class="cta">
+          <button class="btn primary" id="btnConnect" type="button">Connect ground station</button>
+          <button class="btn" id="btnSim" type="button">Restart simulation</button>
+        </div>
+        <div class="hud" aria-live="polite">
+          <div class="chip"><span>Mode</span><b id="hMode">—</b></div>
+          <div class="chip"><span>Battery</span><b id="hBatt">—</b></div>
+          <div class="chip"><span>Outside temp · BME680</span><b id="hTemp">—</b></div>
+          <div class="chip"><span>Signal · RSSI</span><b id="hRssi">—</b></div>
+        </div>
+      </div>
+      <div class="scene">
+        <canvas id="scene" aria-label="Animated view of EmirSense-1 orbiting Earth at its current orbit position"></canvas>
+        <div class="scene-tag" id="sceneTag">Orbit position · live</div>
+      </div>
+    </div>
+    <a class="cue" href="#orbit"><span class="mouse"></span>Scroll</a>
+  </section>
+
+  <!-- ORBIT -->
+  <section id="orbit" class="sec wrap" data-nav="Orbit">
+    <div class="sec-head reveal">
+      <span class="tag" style="color:var(--sun)">CONOPS · 90-minute orbit</span>
+      <h2>Where we are in the orbit</h2>
+      <p>The CubeSat switches modes on a timer. In demo mode the orbit runs 10× faster, so all four modes play out in 9 minutes.</p>
+    </div>
+    <div class="glass reveal">
+      <div class="row">
+        <span class="label">Mission clock · orbit phase</span>
+        <button class="switch" id="demoSwitch" role="switch" aria-checked="true" type="button"><span class="track"></span><span>Demo ×10</span></button>
+      </div>
+      <div class="timeline">
+        <div class="tl-bar" id="tlBar"></div>
+        <div class="tl-marker" id="tlMarker" data-t="00:00" style="left:0%"></div>
+      </div>
+      <div class="tl-scale"><span>0 min</span><span>30</span><span>55</span><span>65</span><span>90 min</span></div>
+      <div class="mode-now">
+        <span class="state s-good" id="modeState">Sun Pointing</span>
+        <h3 id="modeTitle">Sun Pointing</h3>
+        <span class="note" id="modeNext">Next mode in —</span>
+      </div>
+    </div>
+    <div class="grid g4 modes reveal" id="modeCards" style="margin-top:16px"></div>
+  </section>
+
+  <!-- PAYLOAD -->
+  <section id="payload" class="sec wrap" data-nav="Payload">
+    <div class="sec-head reveal">
+      <span class="tag" style="color:var(--cyan)">Payload · BME680</span>
+      <h2>Environmental readings</h2>
+      <p>The BME680 measures temperature, humidity, pressure and gas resistance. It powers up only in Payload mode, so values hold between passes.</p>
+    </div>
+    <div class="grid g4 reveal">
+      <div class="glass"><div class="label">Temperature</div><div class="big"><span id="pT">—</span><small>°C</small></div><canvas class="spark" id="spT"></canvas></div>
+      <div class="glass"><div class="label">Humidity</div><div class="big"><span id="pH">—</span><small>%RH</small></div><canvas class="spark" id="spH"></canvas></div>
+      <div class="glass"><div class="label">Pressure</div><div class="big"><span id="pP">—</span><small>hPa</small></div><canvas class="spark" id="spP"></canvas></div>
+      <div class="glass"><div class="label">Gas resistance</div><div class="big"><span id="pG">—</span><small>kΩ</small></div><canvas class="spark" id="spG"></canvas></div>
+    </div>
+    <div class="row reveal" style="margin-top:14px">
+      <span class="note" id="payState">Payload idle</span>
+      <button class="btn" type="button" data-cmd="PAYLOAD_NOW">Take a reading now</button>
+    </div>
+  </section>
+
+  <!-- POWER -->
+  <section id="power" class="sec wrap" data-nav="Power">
+    <div class="sec-head reveal">
+      <span class="tag" style="color:var(--good)">EPS · INA219 · Thermal · DHT11</span>
+      <h2>Power and temperature</h2>
+      <p>The INA219 reports battery voltage, current and power. The DHT11 tracks the temperature inside the frame, next to the BME680 reading outside.</p>
+    </div>
+    <div class="grid g3 reveal">
+      <div class="glass">
+        <div class="row"><span class="label">Battery · 3.7 V 500 mAh LiPo</span><span class="state s-sun" id="chgState">Solar charging</span></div>
+        <div class="gauge">
+          <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="50" stroke="rgba(255,255,255,.1)" stroke-width="10" fill="none"/>
+            <circle id="battArc" cx="60" cy="60" r="50" stroke="url(#bg)" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="314.16" stroke-dashoffset="314.16"/>
+            <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3BE38B"/><stop offset="1" stop-color="#2EE6D6"/></linearGradient></defs></svg>
+          <div class="center"><b id="battPct">—</b><span id="battV">— V</span></div>
+        </div>
+      </div>
+      <div class="glass">
+        <span class="label">Bus readings</span>
+        <dl class="kv" style="margin-top:14px">
+          <dt>Voltage</dt><dd id="eV">—</dd>
+          <dt>Current</dt><dd id="eI">—</dd>
+          <dt>Power</dt><dd id="eP">—</dd>
+          <dt>MADAR solar model</dt><dd>2.20 W</dd>
+          <dt>MADAR peak load</dt><dd>2.044 W</dd>
+        </dl>
+        <p class="note" style="margin:14px 0 0">MADAR figures are the orbital design case. The live values come from the bench prototype.</p>
+      </div>
+      <div class="glass">
+        <span class="label">Inside the frame · DHT11</span>
+        <div class="row" style="margin-top:8px">
+          <div class="big"><span id="dT">—</span><small>°C</small></div>
+          <div class="big"><span id="dH">—</span><small>%RH</small></div>
+        </div>
+        <p class="note" style="margin:8px 0 0">The DHT11 reports whole degrees and whole percent.</p>
+        <span class="state s-good" id="thState" style="margin-top:12px">Thermal nominal</span>
+      </div>
+    </div>
+    <div class="grid g2 reveal" style="margin-top:16px">
+      <div class="glass"><div class="row"><span class="label">Power draw · mW</span><div class="legend"><span><i style="background:var(--good)"></i>Bus power</span></div></div><canvas class="chart" id="chPow"></canvas></div>
+      <div class="glass"><div class="row"><span class="label">Temperature · °C</span><div class="legend"><span><i style="background:var(--warn)"></i>Inside (DHT11)</span><span><i style="background:var(--cyan)"></i>Outside (BME680)</span></div></div><canvas class="chart" id="chTemp"></canvas></div>
+    </div>
+  </section>
+
+  <!-- ATTITUDE -->
+  <section id="attitude" class="sec wrap" data-nav="Attitude">
+    <div class="sec-head reveal">
+      <span class="tag" style="color:var(--violet)">ADCS · MPU6050 · Reaction wheel · LDR</span>
+      <h2>Attitude and sun sensing</h2>
+      <p>The MPU6050 measures how the CubeSat is tilted and spinning. The reaction wheel, driven by the TB6612FNG, slows the spin during Sun and Payload modes.</p>
+    </div>
+    <div class="grid g3 reveal">
+      <div class="glass">
+        <span class="label">Orientation</span>
+        <div class="cube-stage"><div class="cube" id="cube"><div class="face f1"></div><div class="face f2"></div><div class="face f3"></div><div class="face f4"></div><div class="face f5"></div><div class="face f6"></div></div></div>
+        <div class="axisline" id="axisLine">roll — · pitch — · yaw —</div>
+      </div>
+      <div class="glass">
+        <div class="row"><span class="label">Spin rate · gyro Z</span><span class="state s-off" id="wheelState">Wheel off</span></div>
+        <div class="big"><span id="aRate">—</span><small>°/s</small></div>
+        <div class="meter center"><i id="rateBar"></i></div>
+        <div class="label" style="margin-top:18px">Wheel PWM</div>
+        <div class="big"><span id="aPwm">—</span><small>%</small></div>
+        <div class="meter center"><i id="pwmBar"></i></div>
+        <canvas class="spark" id="spRate"></canvas>
+      </div>
+      <div class="glass">
+        <div class="row"><span class="label">Sun sensor · KY-018 LDR</span><span class="state s-sun" id="sunState">In sunlight</span></div>
+        <div class="big"><span id="ldr">—</span><small>/ 4095</small></div>
+        <div class="meter"><i id="ldrBar" style="left:0; background:linear-gradient(90deg,var(--eclipse),var(--sun))"></i></div>
+        <canvas class="spark" id="spLdr"></canvas>
+        <p class="note" style="margin:10px 0 0">Raw 12-bit reading from the ESP32's ADC. Below about 400 counts the CubeSat is in eclipse.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMMS -->
+  <section id="comms" class="sec wrap" data-nav="Commands">
+    <div class="sec-head reveal">
+      <span class="tag" style="color:var(--magenta)">TT&amp;C · SX1278 LoRa 433 MHz</span>
+      <h2>Ground link and commands</h2>
+      <p>Commands go up in the 300&nbsp;ms listen window after each telemetry packet. The CubeSat answers each one with an ACK, and the dashboard resends once if no answer arrives within 3 seconds.</p>
+    </div>
+    <div class="grid g4 reveal">
+      <div class="glass"><div class="label">RSSI</div><div class="big"><span id="cRssi">—</span><small>dBm</small></div><canvas class="spark" id="spRssi"></canvas></div>
+      <div class="glass"><div class="label">SNR</div><div class="big"><span id="cSnr">—</span><small>dB</small></div><canvas class="spark" id="spSnr"></canvas></div>
+      <div class="glass"><div class="label">Packets received</div><div class="big"><span id="cRx">0</span></div><div class="note" id="cLoss">0 lost · 0.0%</div></div>
+      <div class="glass"><div class="label">Last packet</div><div class="big"><span id="cAge">—</span><small>s ago</small></div><div class="note" id="cLink">Waiting for first packet</div></div>
+    </div>
+    <div class="glass reveal" style="margin-top:16px">
+      <div class="row" style="margin-bottom:14px"><span class="label">Send a command</span><span class="note" id="cmdRule">Demo mode accepts commands at any time</span></div>
+      <div class="cmds">
+        <button class="cmd" type="button" data-cmd="MODE_SAFE"><b>MODE_SAFE</b><span>Force safe mode</span></button>
+        <button class="cmd" type="button" data-cmd="MODE_AUTO"><b>MODE_AUTO</b><span>Return to the orbit timer</span></button>
+        <button class="cmd" type="button" data-cmd="WHEEL_ON"><b>WHEEL_ON</b><span>Enable reaction wheel</span></button>
+        <button class="cmd" type="button" data-cmd="WHEEL_OFF"><b>WHEEL_OFF</b><span>Disable reaction wheel</span></button>
+        <button class="cmd" type="button" data-cmd="PAYLOAD_NOW"><b>PAYLOAD_NOW</b><span>Take a BME680 reading</span></button>
+        <button class="cmd" type="button" data-cmd="DEMO_ON"><b>DEMO_ON</b><span>Run the orbit 10× faster</span></button>
+        <button class="cmd" type="button" data-cmd="DEMO_OFF"><b>DEMO_OFF</b><span>Real-time 90-minute orbit</span></button>
+        <button class="cmd" type="button" data-cmd="PING"><b>PING</b><span>Test the link</span></button>
+      </div>
+      <div class="tablebox">
+        <table><thead><tr><th>ID</th><th>Command</th><th>Sent</th><th>Status</th></tr></thead><tbody id="cmdRows"></tbody></table>
+        <div class="empty" id="cmdEmpty">No commands sent yet. Try PING.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LOG -->
+  <section id="log" class="sec wrap" data-nav="Log">
+    <div class="sec-head reveal">
+      <span class="tag" style="color:var(--cyan)">CDHS · ESP32 · MicroSD</span>
+      <h2>Events and raw data</h2>
+      <p>Every packet and command is logged here. The CubeSat also writes each record to its MicroSD card.</p>
+    </div>
+    <div class="grid g2 reveal">
+      <div class="glass"><div class="row" style="margin-bottom:10px"><span class="label">Event log</span><span class="state s-good" id="sdState">MicroSD OK</span></div><div class="log" id="logList"></div></div>
+      <div class="glass">
+        <span class="label">Last telemetry line</span>
+        <div class="raw" id="raw" style="margin-top:10px">waiting…</div>
+        <span class="label" style="display:block; margin-top:18px">Packet format</span>
+        <div class="raw" style="margin-top:10px; color:var(--muted)">ES1,seq,time,mode,tempC,hum,press_hPa,gas_kOhm,busV,mA,mW,dhtT,dhtH,roll,pitch,gyroZ,wheelPWM,ldr,sd[,rssi,snr]
+CMD,id,action   →   ACK,id,OK | ACK,id,REJECTED</div>
+        <div class="row" style="margin-top:16px">
+          <span class="note" id="recCount">0 records this session</span>
+          <button class="btn" id="btnCsv" type="button">Export CSV</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="wrap">EmirSense-1 · SatForge 1U CubeSat · Ground segment dashboard</footer>
+</main>
+
+<nav id="dock" aria-label="Sections"><div class="dock-in" id="dockIn"><span class="dock-ind" id="dockInd"></span></div></nav>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const tok = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const C = {
+  sun: tok('--sun') || '#FFC24B', cyan: tok('--cyan') || '#2EE6D6', violet: tok('--violet') || '#A07CFF',
+  eclipse: tok('--eclipse') || '#7084E0', magenta: tok('--magenta') || '#FF4FD8', good: tok('--good') || '#3BE38B',
+  warn: tok('--warn') || '#FFB020', crit: tok('--crit') || '#FF4D6D', muted: tok('--muted') || '#ABA7D2', faint: tok('--faint') || '#726E9C',
+  sky: '#5AB0FF'
+};
+const MONO = "'JetBrains Mono', ui-monospace, Menlo, monospace";
+const BODY = "Manrope, -apple-system, system-ui, sans-serif";
+const AR = "'Reem Kufi', 'Geeza Pro', 'Noto Kufi Arabic', sans-serif";
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const hexA = (hex, a) => { const h = hex.replace('#', ''); const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
+
+/* ---------------- mission model ---------------- */
+const PERIOD = 5400;
+const MODES = {
+  SUN:  { name: 'Sun Pointing',   dur: 1800, color: C.sun,     desc: 'Solar charging and attitude stabilization.' },
+  PAY:  { name: 'Payload',        dur: 1500, color: C.cyan,    desc: 'BME680 collects environmental data.' },
+  GND:  { name: 'Ground Station', dur: 600,  color: C.violet,  desc: 'LoRa telemetry downlink and command uplink.' },
+  ECL:  { name: 'Safe / Eclipse', dur: 1500, color: C.eclipse, desc: 'Payload and reaction wheel off to save power.' },
+  SAFE: { name: 'Safe (commanded)', dur: 0,  color: C.crit,    desc: 'Forced from the ground. Payload and wheel stay off.' }
+};
+const ORDER = ['SUN', 'PAY', 'GND', 'ECL'];
+const START = { SUN: 0, PAY: 1800, GND: 3300, ECL: 3900 };
+const ON = {
+  SUN: ['Reaction wheel', 'TB6612FNG', 'MPU6050', 'ESP32', 'Solar + CN3065', 'INA219', 'MT3608', 'LDR', 'DHT11'],
+  PAY: ['Reaction wheel', 'TB6612FNG', 'MPU6050', 'ESP32', 'BME680', 'Solar + CN3065', 'INA219', 'MT3608', 'LDR', 'DHT11', 'MicroSD'],
+  GND: ['MPU6050', 'ESP32', 'SX1278 LoRa', 'Solar + CN3065', 'INA219', 'MT3608', 'LDR', 'DHT11', 'MicroSD'],
+  ECL: ['MPU6050', 'ESP32', 'INA219', 'MT3608', 'LDR', 'DHT11']
+};
+const phaseOf = t => ((t % PERIOD) + PERIOD) % PERIOD;
+function modeAt(t) { const p = phaseOf(t); return p < 1800 ? 'SUN' : p < 3300 ? 'PAY' : p < 3900 ? 'GND' : 'ECL'; }
+const hms = s => { s = Math.max(0, Math.floor(s)); return [Math.floor(s / 3600), Math.floor(s % 3600 / 60), s % 60].map(v => String(v).padStart(2, '0')).join(':'); };
+const mmss = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const gstFmt = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dubai', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+const timeStr = d => gstFmt.format(d);
+
+const BATT = [[3.3, 0], [3.5, 5], [3.6, 10], [3.7, 30], [3.75, 45], [3.8, 55], [3.9, 68], [4.0, 80], [4.1, 92], [4.2, 100]];
+function battPct(v) { if (v <= 3.3) return 0; if (v >= 4.2) return 100; for (let i = 1; i < BATT.length; i++) if (v <= BATT[i][0]) { const [a, pa] = BATT[i - 1], [b, pb] = BATT[i]; return pa + (pb - pa) * (v - a) / (b - a); } return 100; }
+function socToV(s) { const p = clamp(s * 100, 0, 100); for (let i = 1; i < BATT.length; i++) if (p <= BATT[i][1]) { const [a, pa] = BATT[i - 1], [b, pb] = BATT[i]; return a + (b - a) * (p - pa) / (pb - pa); } return 4.2; }
+
+/* ---------------- state ---------------- */
+const N = 90;
+const KEYS = ['temp', 'hum', 'press', 'gas', 'busV', 'mA', 'mW', 'dhtT', 'dhtH', 'roll', 'pitch', 'gyroZ', 'pwm', 'ldr', 'rssi', 'snr'];
+const H = {};
+const S = { source: 'none', last: null, lastRxAt: 0, rx: 0, lost: 0, lastSeq: null, mode: null, missionT: 0, missionAt: 0, factor: 10, metStart: performance.now(), records: [], cmdId: 0, cmds: new Map(), yaw: 0 };
+function resetSession(src) {
+  KEYS.forEach(k => H[k] = []);
+  Object.assign(S, { source: src, last: null, lastRxAt: 0, rx: 0, lost: 0, lastSeq: null, mode: null, missionT: 0, missionAt: 0, factor: 10, metStart: performance.now(), records: [], yaw: 0 });
+  $('raw').textContent = 'waiting…';
+  drawCharts();
+}
+const push = (k, v) => { const a = H[k]; a.push(v); if (a.length > N) a.shift(); };
+const projT = () => S.last ? S.missionT + (performance.now() - S.missionAt) / 1000 * S.factor : 0;
+
+/* ---------------- parsing ---------------- */
+const FIELDS = ['seq', 'time', 'mode', 'temp', 'hum', 'press', 'gas', 'busV', 'mA', 'mW', 'dhtT', 'dhtH', 'roll', 'pitch', 'gyroZ', 'pwm', 'ldr', 'sd', 'rssi', 'snr'];
+function handleLine(raw) {
+  const line = String(raw).trim();
+  if (!line) return;
+  if (line.startsWith('ES1,')) {
+    const p = line.split(',');
+    const d = {};
+    FIELDS.forEach((f, i) => {
+      const v = p[i + 1];
+      if (f === 'mode') d.mode = (v || '').trim().toUpperCase();
+      else { const n = (v === undefined || v.trim() === '') ? null : Number(v); d[f] = Number.isFinite(n) ? n : null; }
+    });
+    if (d.seq === null || d.time === null) { addLog('Malformed packet ignored', 'warn'); return; }
+    onTelemetry(d, line);
+  } else if (line.startsWith('ACK,')) {
+    const [, id, res] = line.split(',');
+    onAck(Number(id), (res || '').trim().toUpperCase());
+  } else {
+    addLog('Ground station: ' + line.slice(0, 140));
+  }
+}
+
+function onTelemetry(d, line) {
+  const now = performance.now();
+  if (S.lastSeq !== null) {
+    const gap = d.seq - S.lastSeq - 1;
+    if (gap > 0 && gap < 5000) { S.lost += gap; addLog(`Lost ${gap} packet${gap > 1 ? 's' : ''} (seq ${S.lastSeq + 1}${gap > 1 ? '–' + (d.seq - 1) : ''})`, 'warn'); }
+  }
+  if (S.last && S.lastRxAt) {
+    const dr = (now - S.lastRxAt) / 1000, dm = d.time - S.last.time;
+    if (dr > 0.5 && dm > 0) S.factor = dm / dr > 4 ? 10 : 1;
+    if (d.gyroZ !== null) S.yaw = (S.yaw + d.gyroZ * Math.min(dr, 10)) % 360;
+  }
+  if (d.mode !== S.mode) { if (S.mode) addLog(`Mode → ${(MODES[d.mode] || { name: d.mode }).name}`, 'mode'); S.mode = d.mode; }
+  if (d.busV !== null && d.busV < 3.6 && !(S.last && S.last.busV !== null && S.last.busV < 3.6)) addLog(`Low battery: ${d.busV.toFixed(2)} V`, 'crit');
+  if (d.sd === 0 && !(S.last && S.last.sd === 0)) addLog('MicroSD write error', 'crit');
+  S.lastSeq = d.seq; S.rx++; S.missionT = d.time; S.missionAt = now; S.lastRxAt = now; S.last = d;
+  KEYS.forEach(k => push(k, d[k]));
+  S.records.push(line); if (S.records.length > 20000) S.records.shift();
+  $('raw').textContent = line;
+  render();
+}
+
+/* ---------------- rendering ---------------- */
+const setNum = (id, v, dp, suf = '') => { $(id).textContent = (v === null || v === undefined || !Number.isFinite(v)) ? '—' : v.toFixed(dp) + suf; };
+const setState = (id, [text, cls]) => { const el = $(id); el.textContent = text; el.className = 'state ' + cls; };
+function bar(id, frac, color, centered = true) {
+  const el = $(id); frac = clamp(frac || 0, -1, 1);
+  if (centered) { el.style.left = (frac >= 0 ? 50 : 50 + frac * 50) + '%'; el.style.width = Math.abs(frac) * 50 + '%'; }
+  else { el.style.left = '0'; el.style.width = Math.abs(frac) * 100 + '%'; }
+  if (color) el.style.background = color;
+}
+
+function render() {
+  const d = S.last; if (!d) return;
+  const m = MODES[d.mode] || { name: d.mode || '—', color: C.muted };
+  $('hMode').textContent = m.name; $('hMode').style.color = m.color;
+  const pct = d.busV !== null ? battPct(d.busV) : null;
+  $('hBatt').textContent = pct === null ? '—' : `${pct.toFixed(0)}% · ${d.busV.toFixed(2)} V`;
+  $('hTemp').textContent = d.temp === null ? '—' : d.temp.toFixed(1) + ' °C';
+  $('hRssi').textContent = d.rssi === null ? '—' : d.rssi.toFixed(0) + ' dBm';
+
+  setNum('pT', d.temp, 1); setNum('pH', d.hum, 1); setNum('pP', d.press, 1); setNum('pG', d.gas, 1);
+  $('payState').textContent = d.mode === 'PAY' ? 'Payload powered · sampling every 5 s' : 'Payload powered down · showing the last reading';
+
+  setNum('battPct', pct, 0, '%'); $('battV').textContent = d.busV === null ? '— V' : d.busV.toFixed(2) + ' V';
+  $('battArc').setAttribute('stroke-dashoffset', (314.16 * (1 - (pct || 0) / 100)).toFixed(1));
+  setNum('eV', d.busV, 2, ' V'); setNum('eI', d.mA, 0, ' mA'); setNum('eP', d.mW, 0, ' mW');
+  const lit = d.ldr !== null ? d.ldr > 400 : d.mode !== 'ECL';
+  setState('chgState', lit ? (pct !== null && pct > 99 ? ['Battery full', 's-good'] : ['Solar charging', 's-sun']) : ['On battery', 's-ecl']);
+  setNum('dT', d.dhtT, 0); setNum('dH', d.dhtH, 0);
+  setState('thState', d.dhtT === null ? ['No data', 's-off'] : d.dhtT > 45 ? ['Too hot', 's-crit'] : d.dhtT > 38 ? ['Running warm', 's-warn'] : ['Thermal nominal', 's-good']);
+
+  const yaw = ((S.yaw % 360) + 360) % 360;
+  $('cube').style.transform = `rotateX(${-24 - (d.pitch || 0)}deg) rotateY(${yaw + 35}deg) rotateZ(${d.roll || 0}deg)`;
+  const sg = v => v === null ? '—' : (v > 0 ? '+' : '') + v.toFixed(1);
+  $('axisLine').textContent = `roll ${sg(d.roll)}° · pitch ${sg(d.pitch)}° · yaw ${yaw.toFixed(0)}°`;
+  setNum('aRate', d.gyroZ, 2); bar('rateBar', (d.gyroZ || 0) / 8, C.violet);
+  setNum('aPwm', d.pwm, 0); bar('pwmBar', (d.pwm || 0) / 100, C.magenta);
+  setState('wheelState', Math.abs(d.pwm || 0) > 0.5 ? ['Wheel active', 's-good'] : ['Wheel off', 's-off']);
+  setNum('ldr', d.ldr, 0); bar('ldrBar', (d.ldr || 0) / 4095, null, false);
+  setState('sunState', lit ? ['In sunlight', 's-sun'] : ['In eclipse', 's-ecl']);
+
+  setNum('cRssi', d.rssi, 0); setNum('cSnr', d.snr, 1);
+  $('cRx').textContent = S.rx;
+  const tot = S.rx + S.lost; $('cLoss').textContent = `${S.lost} lost · ${(tot ? S.lost / tot * 100 : 0).toFixed(1)}%`;
+  setState('sdState', d.sd === 0 ? ['MicroSD error', 's-crit'] : ['MicroSD OK', 's-good']);
+  $('recCount').textContent = `${S.records.length} records this session`;
+  drawCharts();
+  if (reduce) drawScene(performance.now());
+}
+
+/* ---------------- charts ---------------- */
+function prep(cv) {
+  const r = cv.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
+  const w = Math.max(10, r.width), h = Math.max(10, r.height);
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+  return { ctx, w, h };
+}
+function drawChart(cv, series, opts = {}) {
+  if (!cv || !cv.getClientRects().length) return;
+  const grid = opts.grid !== false;
+  const fmtY = opts.fmtY || (v => v.toFixed(0));
+  const { ctx, w, h } = prep(cv);
+  const vals = series.flatMap(s => s.data.filter(v => v !== null && Number.isFinite(v)));
+  if (vals.length < 2) { ctx.fillStyle = C.faint; ctx.font = '12px ' + BODY; ctx.textBaseline = 'middle'; ctx.fillText('Waiting for data…', 6, h / 2); return; }
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if (hi - lo < 1e-6) { hi += 1; lo -= 1; }
+  const m = (hi - lo) * 0.15; lo -= m; hi += m;
+  const [pt, pr, pb, pl] = grid ? [10, 10, 10, 48] : [8, 9, 6, 4];
+  const X = i => pl + (w - pl - pr) * i / (N - 1);
+  const Y = v => pt + (h - pt - pb) * (1 - (v - lo) / (hi - lo));
+  if (grid) {
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.fillStyle = C.faint;
+    ctx.font = '11px ' + MONO; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (let k = 0; k <= 3; k++) { const v = lo + (hi - lo) * k / 3, y = Y(v); ctx.beginPath(); ctx.moveTo(pl, y); ctx.lineTo(w - pr, y); ctx.stroke(); ctx.fillText(fmtY(v), pl - 8, y); }
+  }
+  series.forEach(s => {
+    const off = N - s.data.length, pts = [];
+    s.data.forEach((v, i) => { if (v !== null && Number.isFinite(v)) pts.push([X(i + off), Y(v)]); });
+    if (pts.length < 2) return;
+    const g = ctx.createLinearGradient(0, pt, 0, h - pb);
+    g.addColorStop(0, hexA(s.color, .30)); g.addColorStop(1, hexA(s.color, 0));
+    ctx.beginPath(); ctx.moveTo(pts[0][0], h - pb); pts.forEach(p => ctx.lineTo(p[0], p[1])); ctx.lineTo(pts[pts.length - 1][0], h - pb); ctx.closePath(); ctx.fillStyle = g; ctx.fill();
+    ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
+    ctx.strokeStyle = s.color; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.shadowColor = s.color; ctx.shadowBlur = 8; ctx.stroke(); ctx.shadowBlur = 0;
+    const e = pts[pts.length - 1];
+    ctx.beginPath(); ctx.arc(e[0], e[1], 7, 0, 7); ctx.fillStyle = hexA(s.color, .28); ctx.fill();
+    ctx.beginPath(); ctx.arc(e[0], e[1], 3.2, 0, 7); ctx.fillStyle = '#fff'; ctx.fill();
+  });
+}
+function drawCharts() {
+  const sp = { grid: false };
+  drawChart($('spT'), [{ data: H.temp, color: C.cyan }], sp);
+  drawChart($('spH'), [{ data: H.hum, color: C.sky }], sp);
+  drawChart($('spP'), [{ data: H.press, color: C.violet }], sp);
+  drawChart($('spG'), [{ data: H.gas, color: C.magenta }], sp);
+  drawChart($('spRate'), [{ data: H.gyroZ, color: C.violet }], sp);
+  drawChart($('spLdr'), [{ data: H.ldr, color: C.sun }], sp);
+  drawChart($('spRssi'), [{ data: H.rssi, color: C.magenta }], sp);
+  drawChart($('spSnr'), [{ data: H.snr, color: C.cyan }], sp);
+  drawChart($('chPow'), [{ data: H.mW, color: C.good }]);
+  drawChart($('chTemp'), [{ data: H.dhtT, color: C.warn }, { data: H.temp, color: C.cyan }], { fmtY: v => v.toFixed(1) });
+}
+
+/* ---------------- log + toast ---------------- */
+function addLog(msg, kind = '') {
+  const el = $('logList'), row = document.createElement('div');
+  const t = document.createElement('time'); t.textContent = timeStr(new Date());
+  const s = document.createElement('span'); s.textContent = msg;
+  const col = { warn: C.warn, crit: C.crit, ok: C.good, mode: C.sun, cmd: C.violet }[kind]; if (col) s.style.color = col;
+  row.append(t, s); el.prepend(row);
+  while (el.children.length > 150) el.lastChild.remove();
+}
+let toastT;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 4200); }
+
+/* ---------------- commands ---------------- */
+const enc = new TextEncoder();
+let port = null, reader = null, writer = null, pipeDone = null;
+function sendCommand(action) {
+  const c = { id: ++S.cmdId, action, sentAt: new Date(), status: 'Sent', tries: 1, timer: null, ackAt: null };
+  S.cmds.set(c.id, c); addLog(`→ CMD ${c.id} ${action}`, 'cmd'); transmit(c); renderCmds();
+}
+function transmit(c) {
+  const line = `CMD,${c.id},${c.action}`;
+  if (S.source === 'live' && writer) writer.write(enc.encode(line + '\n')).catch(e => addLog('Serial write failed: ' + e.message, 'crit'));
+  else if (S.source === 'sim') sim.receive(line);
+  else { c.status = 'Not sent · no link'; renderCmds(); return; }
+  clearTimeout(c.timer);
+  c.timer = setTimeout(() => {
+    if (c.status === 'ACK OK' || c.status === 'Rejected') return;
+    if (c.tries < 2) { c.tries++; c.status = 'Resent'; addLog(`No ACK for CMD ${c.id}, resending`, 'warn'); renderCmds(); transmit(c); }
+    else { c.status = 'No ACK'; addLog(`CMD ${c.id} ${c.action}: no ACK after 2 tries`, 'crit'); renderCmds(); }
+  }, 3000);
+}
+function onAck(id, res) {
+  const c = S.cmds.get(id);
+  if (!c) { addLog(`ACK for unknown command ${id}`, 'warn'); return; }
+  if (c.status === 'ACK OK' || c.status === 'Rejected') return;
+  clearTimeout(c.timer); c.ackAt = new Date();
+  c.status = res === 'OK' ? 'ACK OK' : 'Rejected';
+  addLog(`← ACK ${id} ${res}`, res === 'OK' ? 'ok' : 'warn');
+  if (res === 'OK' && c.action === 'DEMO_ON') S.factor = 10;
+  if (res === 'OK' && c.action === 'DEMO_OFF') S.factor = 1;
+  if (res !== 'OK') toast(`${c.action} was rejected by the CubeSat.`);
+  renderCmds();
+}
+const stCls = s => s === 'ACK OK' ? 's-good' : s === 'Rejected' ? 's-warn' : (s === 'No ACK' || s.startsWith('Not sent')) ? 's-crit' : 's-off';
+function renderCmds() {
+  const rows = [...S.cmds.values()].slice(-8).reverse();
+  $('cmdEmpty').hidden = rows.length > 0;
+  const tb = $('cmdRows'); tb.textContent = '';
+  rows.forEach(c => {
+    const tr = document.createElement('tr');
+    const cells = [String(c.id), c.action, timeStr(c.sentAt)];
+    cells.forEach(txt => { const td = document.createElement('td'); td.className = 'mono'; td.textContent = txt; tr.append(td); });
+    const td = document.createElement('td'), sp = document.createElement('span');
+    sp.className = 'state ' + stCls(c.status);
+    sp.textContent = c.status + (c.ackAt ? ` · ${((c.ackAt - c.sentAt) / 1000).toFixed(1)} s` : '');
+    td.append(sp); tr.append(td); tb.append(tr);
+  });
+}
+
+/* ---------------- simulator (speaks the real packet format) ---------------- */
+const sim = {
+  timer: null,
+  reset() { Object.assign(this, { mt: 0, t: 0, seq: 0, demo: true, safe: false, wheelEn: true, soc: 0.74, rate: 5.5, pwm: 0, roll: 0, pitch: 0, v: 3.9, bme: { temp: 28.6, hum: 41.2, press: 1008.4, gas: 118 }, forceRead: false }); },
+  start() { this.stop(); this.reset(); this.mt = 600; this.last = performance.now(); for (let i = 0; i < 70; i++) this.step(2); this.timer = setInterval(() => this.step(), 2000); this.step(); },
+  stop() { clearInterval(this.timer); this.timer = null; },
+  step(fixedDt) {
+    const now = performance.now(), dt = fixedDt || clamp((now - this.last) / 1000, 0.5, 5); this.last = now;
+    const f = this.demo ? 10 : 1;
+    this.t += dt; this.mt += dt * f;
+    const base = modeAt(this.mt), mode = this.safe ? 'SAFE' : base, lit = base !== 'ECL';
+    const adcs = (mode === 'SUN' || mode === 'PAY') && this.wheelEn;
+    const dist = (Math.random() - 0.5) * 0.6;
+    if (adcs) { this.rate += -0.3 * this.rate * dt + dist * 0.3; this.pwm = clamp(this.rate * 9 + (Math.random() - 0.5) * 3, -80, 80); }
+    else { this.rate = clamp(this.rate + dist * 0.5 + 0.06 * Math.sign(this.rate || 1), -8, 8); this.pwm = 0; }
+    this.roll = 4 * Math.sin(this.t / 9) + (Math.random() - 0.5) * 0.8;
+    this.pitch = 3 * Math.cos(this.t / 13) + (Math.random() - 0.5) * 0.8;
+    if (mode === 'PAY' || this.forceRead) {
+      const b = this.bme;
+      b.temp = clamp(b.temp + (Math.random() - 0.5) * 0.25 + 0.03 * Math.sin(this.t / 40), 24, 36);
+      b.hum = clamp(b.hum + (Math.random() - 0.5) * 0.6, 30, 55);
+      b.press = clamp(b.press + (Math.random() - 0.5) * 0.15, 1004, 1013);
+      b.gas = clamp(b.gas + (Math.random() - 0.5) * 5, 80, 160);
+      this.forceRead = false;
+    }
+    let load = 893;
+    if (adcs) load += 330 * Math.min(1, 0.4 + Math.abs(this.pwm) / 80);
+    if (mode === 'PAY') load += 140;
+    if (mode === 'GND') load += 500;
+    if (this.demo && mode !== 'GND') load += 60;
+    load *= 1 + (Math.random() - 0.5) * 0.04;
+    const solar = lit ? 2200 * (0.85 + 0.15 * Math.random()) : 0;
+    const charging = lit && this.soc < 0.995;
+    this.soc = clamp(this.soc + ((charging ? solar : 0) - load) * dt * f / 3600 / 1850, 0.03, 1);
+    this.v = socToV(this.soc) + (charging ? 0.04 : 0) + (Math.random() - 0.5) * 0.01;
+    if (this.v < 3.5 && !this.safe) this.safe = true;
+    const ldr = lit ? 2900 + 700 * Math.random() : 60 + 60 * Math.random();
+    const dhtT = Math.round(29 + load / 600 + 1.5 * Math.sin(this.t / 300));
+    const dhtH = Math.round(36 + 2 * Math.sin(this.t / 500));
+    this.seq++;
+    if (!(this.demo || base === 'GND')) return;      // out of contact: data stays on the MicroSD
+    if (Math.random() < 0.02) return;                 // simulated packet loss
+    const b = this.bme;
+    const line = ['ES1', this.seq, Math.round(this.mt), mode, b.temp.toFixed(2), b.hum.toFixed(1), b.press.toFixed(2), b.gas.toFixed(1),
+      this.v.toFixed(3), (load / this.v).toFixed(1), load.toFixed(0), dhtT, dhtH, this.roll.toFixed(1), this.pitch.toFixed(1),
+      this.rate.toFixed(2), this.pwm.toFixed(0), ldr.toFixed(0), 1, (-62 - 8 * Math.random()).toFixed(0), (7 + 3 * Math.random()).toFixed(1)].join(',');
+    handleLine(line);
+  },
+  receive(line) {
+    const [, idS, action] = line.split(','), id = Number(idS);
+    setTimeout(() => {
+      if (S.source !== 'sim') return;
+      const heard = this.demo || modeAt(this.mt) === 'GND';
+      if (!heard) return;                              // nobody listening outside a pass
+      let ok = true;
+      switch (action) {
+        case 'MODE_SAFE': this.safe = true; break;
+        case 'MODE_AUTO': if (this.v < 3.5) ok = false; else this.safe = false; break;
+        case 'WHEEL_ON': if (this.v < 3.5) ok = false; else this.wheelEn = true; break;
+        case 'WHEEL_OFF': this.wheelEn = false; break;
+        case 'PAYLOAD_NOW': this.forceRead = true; break;
+        case 'DEMO_ON': this.demo = true; break;
+        case 'DEMO_OFF': this.demo = false; break;
+        case 'PING': break;
+        default: ok = false;
+      }
+      handleLine(`ACK,${id},${ok ? 'OK' : 'REJECTED'}`);
+    }, 350 + Math.random() * 450);
+  }
+};
+
+/* ---------------- live serial link (Web Serial) ---------------- */
+async function connectLive() {
+  if (!('serial' in navigator)) { toast('The live link needs Chrome or Edge on a laptop, with this dashboard opened from its downloaded file.'); return; }
+  try { port = await navigator.serial.requestPort(); await port.open({ baudRate: 115200 }); }
+  catch (e) { port = null; toast(e && e.name === 'NotFoundError' ? 'No port selected.' : 'Could not open the port: ' + (e && e.message)); return; }
+  sim.stop(); resetSession('live');
+  writer = port.writable.getWriter();
+  addLog('Ground station connected over USB at 115200 baud', 'ok');
+  $('btnConnect').textContent = 'Disconnect ground station';
+  readLoop();
+}
+async function readLoop() {
+  const dec = new TextDecoderStream();
+  pipeDone = port.readable.pipeTo(dec.writable).catch(() => {});
+  reader = dec.readable.getReader();
+  let buf = '';
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += value; let i;
+      while ((i = buf.indexOf('\n')) >= 0) { handleLine(buf.slice(0, i)); buf = buf.slice(i + 1); }
+      if (buf.length > 4000) buf = '';
+    }
+  } catch (e) { addLog('Serial read stopped: ' + e.message, 'crit'); }
+  finally { try { reader.releaseLock(); } catch (_) {} }
+}
+async function disconnectLive() {
+  try { if (reader) await reader.cancel(); if (pipeDone) await pipeDone; if (writer) writer.releaseLock(); if (port) await port.close(); } catch (_) {}
+  port = reader = writer = null; S.source = 'none';
+  addLog('Ground station disconnected');
+  $('btnConnect').textContent = 'Connect ground station';
+}
+
+/* ---------------- static UI ---------------- */
+function buildTimeline() {
+  const barEl = $('tlBar');
+  ORDER.forEach(k => {
+    const s = document.createElement('div'); s.className = 'tl-seg';
+    s.style.width = (MODES[k].dur / PERIOD * 100) + '%'; s.style.background = MODES[k].color;
+    const sp = document.createElement('span'); sp.textContent = MODES[k].name; s.append(sp); barEl.append(s);
+  });
+  const wrap = $('modeCards');
+  ORDER.forEach(k => {
+    const m = MODES[k], card = document.createElement('div');
+    card.className = 'glass'; card.dataset.mode = k; card.style.setProperty('--c', m.color);
+    const tag = document.createElement('span'); tag.className = 'tag'; tag.style.color = m.color; tag.textContent = (m.dur / 60) + ' min';
+    const h4 = document.createElement('h4'); h4.textContent = m.name;
+    const p = document.createElement('p'); p.textContent = m.desc;
+    const chips = document.createElement('div'); chips.className = 'chips';
+    ON[k].forEach(n => { const e = document.createElement('em'); e.textContent = n; chips.append(e); });
+    card.append(tag, h4, p, chips); wrap.append(card);
+  });
+}
+
+/* ---------------- dock (glass section bar) ---------------- */
+const secs = [...document.querySelectorAll('[data-nav]')];
+const dockIn = $('dockIn'), dockInd = $('dockInd');
+const links = secs.map(sec => {
+  const a = document.createElement('a'); a.href = '#' + sec.id;
+  const d = document.createElement('span'); d.className = 'd';
+  a.append(d, document.createTextNode(sec.dataset.nav));
+  a.addEventListener('click', e => { e.preventDefault(); sec.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }); });
+  dockIn.append(a); return a;
+});
+let activeIdx = -1;
+function updateDock(force) {
+  let idx = 0; const mark = innerHeight * 0.4;
+  secs.forEach((s, i) => { if (s.getBoundingClientRect().top <= mark) idx = i; });
+  if (innerHeight + scrollY >= document.documentElement.scrollHeight - 4) idx = secs.length - 1;
+  if (idx === activeIdx && !force) return;
+  activeIdx = idx;
+  links.forEach((a, i) => { a.classList.toggle('on', i === idx); if (i === idx) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current'); });
+  const a = links[idx];
+  dockInd.style.left = a.offsetLeft + 'px'; dockInd.style.width = a.offsetWidth + 'px';
+  dockIn.scrollTo({ left: a.offsetLeft - dockIn.clientWidth / 2 + a.offsetWidth / 2, behavior: reduce ? 'auto' : 'smooth' });
+}
+
+/* ---------------- reveal on scroll ---------------- */
+if ('IntersectionObserver' in window && !reduce) {
+  document.documentElement.classList.add('js-reveal');
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); drawCharts(); } }), { rootMargin: '0px 0px -8% 0px' });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+}
+
+/* ---------------- sky backdrop ---------------- */
+const sky = $('sky'), sk = sky.getContext('2d');
+let SW = 0, SH = 0, stars = [], neb = null, shooters = [], drifters = [], nextShoot = 0, nextDrift = 0;
+const SUHAIL = { ax: 0.07, ay: 0.74, pts: [[0, 0], [70, -30], [140, -22], [200, 8], [252, -6], [300, -40], [268, -80]], ar: 'سهيل', en: 'Suhail · Canopus' };
+const THURAYYA = { ax: 0.44, ay: 0.13, pts: [[0, 0], [15, -7], [28, 2], [11, 12], [32, -15], [-11, 6], [23, 19]], ar: 'الثريا', en: 'Thurayya · Pleiades' };
+function sizeSky() {
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  SW = innerWidth; SH = innerHeight;
+  sky.width = Math.round(SW * dpr); sky.height = Math.round(SH * dpr); sk.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const n = Math.round(SW * SH / 2300);
+  const palette = () => { const r = Math.random(); return r < 0.12 ? C.cyan : r < 0.2 ? C.sun : r < 0.26 ? C.magenta : '#ffffff'; };
+  stars = Array.from({ length: n }, () => ({ x: Math.random() * SW, y: Math.random() * SH * 1.6, r: Math.random() < 0.92 ? Math.random() * 1.1 + 0.25 : Math.random() * 1.6 + 1.1, l: [0.08, 0.18, 0.32][Math.floor(Math.random() * 3)], p: Math.random() * 6.28, s: 0.5 + Math.random() * 1.6, c: palette() }));
+  neb = document.createElement('canvas'); neb.width = SW; neb.height = Math.round(SH * 1.3);
+  const n2 = neb.getContext('2d'), NH = neb.height;
+  [[0.12, 0.18, 0.55, 'rgba(160,124,255,.26)'], [0.88, 0.12, 0.5, 'rgba(255,79,216,.18)'], [0.72, 0.78, 0.6, 'rgba(46,230,214,.13)'], [0.22, 0.92, 0.5, 'rgba(0,179,107,.12)'], [0.5, 0.45, 0.75, 'rgba(70,60,210,.14)']]
+    .forEach(([x, y, r, c]) => { const g = n2.createRadialGradient(x * SW, y * NH, 0, x * SW, y * NH, r * Math.max(SW, SH)); g.addColorStop(0, c); g.addColorStop(1, 'rgba(0,0,0,0)'); n2.fillStyle = g; n2.fillRect(0, 0, SW, NH); });
+  n2.save(); n2.translate(SW * 0.5, NH * 0.62); n2.rotate(-0.38);
+  const g = n2.createLinearGradient(0, -SH * 0.2, 0, SH * 0.2); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, 'rgba(210,200,255,.08)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  n2.fillStyle = g; n2.fillRect(-SW * 1.2, -SH * 0.2, SW * 2.4, SH * 0.4); n2.restore();
+  if (reduce) drawSky(0);
+}
+function constellation(c, time, py) {
+  const s = clamp(Math.min(SW, SH) / 900, 0.55, 1.2);
+  const ox = c.ax * SW, oy = c.ay * SH - py;
+  const P = c.pts.map(([x, y]) => [ox + x * s, oy + y * s]);
+  if (c === SUHAIL) { sk.strokeStyle = 'rgba(46,230,214,.22)'; sk.lineWidth = 1; sk.setLineDash([3, 5]); sk.beginPath(); P.forEach((p, i) => i ? sk.lineTo(p[0], p[1]) : sk.moveTo(p[0], p[1])); sk.stroke(); sk.setLineDash([]); }
+  P.forEach((p, i) => {
+    const big = c === SUHAIL && i === 0; const tw = 0.75 + 0.25 * Math.sin(time / 700 + i * 1.7);
+    if (big) { const g = sk.createRadialGradient(p[0], p[1], 0, p[0], p[1], 26 * s); g.addColorStop(0, 'rgba(255,240,200,.9)'); g.addColorStop(0.25, 'rgba(255,194,75,.35)'); g.addColorStop(1, 'rgba(255,194,75,0)'); sk.fillStyle = g; sk.beginPath(); sk.arc(p[0], p[1], 26 * s, 0, 7); sk.fill(); }
+    sk.fillStyle = `rgba(255,255,255,${(big ? 1 : 0.85) * tw})`; sk.beginPath(); sk.arc(p[0], p[1], big ? 2.6 : 1.5, 0, 7); sk.fill();
+  });
+  const lx = P[0][0] + (c === SUHAIL ? -4 : -14), ly = P[0][1] + (c === SUHAIL ? 30 : 36) * s;
+  sk.textAlign = 'left'; sk.textBaseline = 'alphabetic';
+  sk.fillStyle = 'rgba(255,194,75,.75)'; sk.font = `600 ${Math.round(16 * s + 2)}px ${AR}`; sk.fillText(c.ar, lx, ly);
+  sk.fillStyle = 'rgba(171,167,210,.6)'; sk.font = `500 11px ${MONO}`; sk.fillText(c.en.toUpperCase(), lx, ly + 16);
+}
+function drawSky(time) {
+  const py = scrollY;
+  sk.fillStyle = '#04030D'; sk.fillRect(0, 0, SW, SH);
+  if (neb) sk.drawImage(neb, Math.sin(time / 31000) * 30, -((py * 0.04) % (SH * 0.3)) + Math.sin(time / 23000) * 18 - SH * 0.08);
+  for (const s of stars) {
+    const y = ((s.y - py * s.l) % (SH * 1.6) + SH * 1.6) % (SH * 1.6) - SH * 0.3;
+    if (y < -4 || y > SH + 4) continue;
+    const a = reduce ? 0.8 : 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(time / 1000 * s.s + s.p));
+    sk.globalAlpha = a; sk.fillStyle = s.c; sk.beginPath(); sk.arc(s.x, y, s.r, 0, 7); sk.fill();
+  }
+  sk.globalAlpha = 1;
+  constellation(SUHAIL, time, py * 0.12);
+  constellation(THURAYYA, time, py * 0.12);
+  if (reduce) return;
+  if (time > nextShoot) { nextShoot = time + 4500 + Math.random() * 6000; const ang = 0.35 + Math.random() * 0.3; shooters.push({ x: Math.random() * SW * 0.8 + SW * 0.1, y: Math.random() * SH * 0.4, vx: Math.cos(ang) * 9, vy: Math.sin(ang) * 9, life: 1 }); }
+  shooters = shooters.filter(s => s.life > 0);
+  for (const s of shooters) {
+    const g = sk.createLinearGradient(s.x, s.y, s.x - s.vx * 12, s.y - s.vy * 12);
+    g.addColorStop(0, `rgba(255,255,255,${s.life})`); g.addColorStop(1, 'rgba(160,124,255,0)');
+    sk.strokeStyle = g; sk.lineWidth = 1.6; sk.beginPath(); sk.moveTo(s.x, s.y); sk.lineTo(s.x - s.vx * 12, s.y - s.vy * 12); sk.stroke();
+    s.x += s.vx; s.y += s.vy; s.life -= 0.018;
+  }
+  if (time > nextDrift) { nextDrift = time + 9000 + Math.random() * 9000; const fromLeft = Math.random() < 0.5; drifters.push({ x: fromLeft ? -10 : SW + 10, y: SH * (0.1 + Math.random() * 0.6), vx: (fromLeft ? 1 : -1) * (0.35 + Math.random() * 0.3), vy: (Math.random() - 0.5) * 0.15, t0: time }); }
+  drifters = drifters.filter(d => d.x > -20 && d.x < SW + 20);
+  for (const d of drifters) {
+    const blink = (Math.floor((time - d.t0) / 900) % 2) ? 0.9 : 0.35;
+    sk.fillStyle = `rgba(255,255,255,${blink})`; sk.beginPath(); sk.arc(d.x, d.y, 1.4, 0, 7); sk.fill();
+    sk.fillStyle = 'rgba(46,230,214,.12)'; sk.beginPath(); sk.arc(d.x, d.y, 5, 0, 7); sk.fill();
+    d.x += d.vx; d.y += d.vy;
+  }
+}
+
+/* ---------------- hero orbit scene ---------------- */
+const sc = $('scene'), sx = sc.getContext('2d');
+let SCW = 0, SCH = 0, heroVisible = true;
+function sizeScene() { const r = sc.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1); SCW = r.width; SCH = r.height; sc.width = Math.round(SCW * dpr); sc.height = Math.round(SCH * dpr); sx.setTransform(dpr, 0, 0, dpr, 0, 0); if (reduce) drawScene(performance.now()); }
+if ('IntersectionObserver' in window) new IntersectionObserver(e => { heroVisible = e[0].isIntersecting; }).observe(sc);
+const LAND = [[-0.35, -0.38, 0.30, 0.13], [0.12, -0.12, 0.2, 0.28], [-0.1, 0.36, 0.27, 0.13], [0.55, 0.22, 0.17, 0.12], [-0.62, 0.08, 0.18, 0.2], [0.75, -0.42, 0.24, 0.1], [0.32, 0.55, 0.14, 0.08]];
+const LIGHTS = Array.from({ length: 26 }, () => [Math.random() * 2 - 1, (Math.random() * 2 - 1) * 0.8]);
+const poly = (c, pts) => { c.beginPath(); pts.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); c.closePath(); c.fill(); };
+function cubesat(c, x, y, k, glow, dim, time) {
+  c.save(); c.translate(x, y);
+  const g = c.createRadialGradient(0, 0, 0, 0, 0, k * 3.4); g.addColorStop(0, hexA(glow, 0.55 * (1 - dim * 0.6))); g.addColorStop(1, hexA(glow, 0));
+  c.fillStyle = g; c.beginPath(); c.arc(0, 0, k * 3.4, 0, 7); c.fill();
+  c.globalAlpha = 1 - dim * 0.5;
+  c.fillStyle = '#1E2A6A'; poly(c, [[0, -k], [k, -k / 2], [0, 0], [-k, -k / 2]]);
+  c.fillStyle = '#C93A4C'; poly(c, [[-k, -k / 2], [0, 0], [0, k], [-k, k / 2]]);
+  c.fillStyle = '#D9D9E6'; poly(c, [[k, -k / 2], [0, 0], [0, k], [k, k / 2]]);
+  c.strokeStyle = 'rgba(120,170,255,.7)'; c.lineWidth = 0.7;
+  c.beginPath(); c.moveTo(-k / 2, -k * 0.75); c.lineTo(k / 2, -k * 0.25); c.moveTo(k / 2, -k * 0.75); c.lineTo(-k / 2, -k * 0.25); c.stroke();
+  c.strokeStyle = '#e8e8f0'; c.lineWidth = 1; c.beginPath(); c.moveTo(k * 0.2, -k * 0.9); c.lineTo(k * 0.55, -k * 2); c.stroke();
+  if (Math.floor(time / 600) % 2) { c.fillStyle = glow; c.beginPath(); c.arc(k * 0.55, -k * 2, 1.8, 0, 7); c.fill(); }
+  c.restore();
+}
+function drawScene(time) {
+  const c = sx, w = SCW, h = SCH; if (!w || !h) return;
+  c.clearRect(0, 0, w, h);
+  const T = time / 1000;
+  const cx = w * 0.5, cy = h * 0.5, R = Math.min(w, h) * 0.21;
+  const a = Math.min(w * 0.47, R * 2.1), b = a * 0.34, rot = -0.24;
+  const pt = th => { const ex = a * Math.cos(th), ey = b * Math.sin(th); return { x: cx + ex * Math.cos(rot) - ey * Math.sin(rot), y: cy + ex * Math.sin(rot) + ey * Math.cos(rot), front: Math.sin(th) > 0 }; };
+  const proj = S.last ? projT() : T * 10;
+  const frac = phaseOf(proj) / PERIOD;
+  const th = 2 * Math.PI * frac - 2 * Math.PI * 0.861;
+  const mode = S.mode || modeAt(proj);
+  const mcol = (MODES[mode] || MODES.SUN).color;
+
+  // sunlight from the left
+  let g = c.createRadialGradient(-w * 0.08, h * 0.3, 0, -w * 0.08, h * 0.3, w * 0.75);
+  g.addColorStop(0, 'rgba(255,220,140,.55)'); g.addColorStop(0.1, 'rgba(255,170,80,.2)'); g.addColorStop(0.45, 'rgba(255,100,120,.05)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = g; c.fillRect(0, 0, w, h);
+  // Earth's shadow cone
+  g = c.createLinearGradient(cx, 0, w, 0); g.addColorStop(0, 'rgba(2,2,14,.6)'); g.addColorStop(1, 'rgba(2,2,14,0)');
+  c.fillStyle = g; c.beginPath(); c.moveTo(cx, cy - R); c.lineTo(w, cy - R * 0.8); c.lineTo(w, cy + R * 0.8); c.lineTo(cx, cy + R); c.closePath(); c.fill();
+  // moon
+  const mx = w * 0.86, my = h * 0.13 + Math.sin(T / 4) * 4, mr = R * 0.12;
+  g = c.createRadialGradient(mx - mr * 0.4, my - mr * 0.4, 0, mx, my, mr); g.addColorStop(0, '#F2EEE6'); g.addColorStop(1, '#6D6A80');
+  c.fillStyle = g; c.beginPath(); c.arc(mx, my, mr, 0, 7); c.fill();
+
+  // orbit (full, behind)
+  c.save(); c.translate(cx, cy); c.rotate(rot);
+  c.strokeStyle = 'rgba(255,255,255,.16)'; c.lineWidth = 1; c.setLineDash([2, 6]); c.beginPath(); c.ellipse(0, 0, a, b, 0, 0, 2 * Math.PI); c.stroke(); c.setLineDash([]);
+  c.restore();
+  // flowing light particles along the orbit
+  const parts = [];
+  for (let i = 0; i < 18; i++) { const tp = T * 0.9 + i / 18 * 2 * Math.PI; parts.push(pt(tp)); }
+  const drawParts = front => parts.forEach((p, i) => { if (p.front !== front) return; c.fillStyle = hexA(i % 3 ? C.cyan : C.magenta, 0.55); c.beginPath(); c.arc(p.x, p.y, 1.4, 0, 7); c.fill(); });
+  drawParts(false);
+  // trail
+  const trail = front => { for (let i = 0; i < 40; i++) { const t0 = th - i * 0.02, p0 = pt(t0), p1 = pt(t0 - 0.02); if (p0.front !== front) continue; c.strokeStyle = hexA(mcol, 0.7 * (1 - i / 40)); c.lineWidth = 2.4 * (1 - i / 40) + 0.4; c.beginPath(); c.moveTo(p0.x, p0.y); c.lineTo(p1.x, p1.y); c.stroke(); } };
+  trail(false);
+  const sat = pt(th);
+  const inShadow = Math.cos(th) > 0.55;
+  const k = 7 + (sat.front ? 5 : 2) * (0.5 + 0.5 * Math.sin(th));
+  if (!sat.front) cubesat(c, sat.x, sat.y, k, mode === 'SAFE' ? C.crit : mcol, inShadow ? 1 : 0, time);
+
+  // Earth
+  g = c.createRadialGradient(cx, cy, R * 0.92, cx, cy, R * 1.38);
+  g.addColorStop(0, 'rgba(46,230,214,.38)'); g.addColorStop(0.45, 'rgba(120,110,255,.16)'); g.addColorStop(1, 'rgba(255,79,216,0)');
+  c.fillStyle = g; c.beginPath(); c.arc(cx, cy, R * 1.38, 0, 7); c.fill();
+  g = c.createRadialGradient(cx - R * 0.45, cy - R * 0.35, R * 0.08, cx, cy, R);
+  g.addColorStop(0, '#47B5FF'); g.addColorStop(0.45, '#1656CC'); g.addColorStop(1, '#06184F');
+  c.fillStyle = g; c.beginPath(); c.arc(cx, cy, R, 0, 7); c.fill();
+  c.save(); c.beginPath(); c.arc(cx, cy, R, 0, 7); c.clip();
+  LAND.forEach(([lx, ly, rx, ry]) => {
+    const x = ((lx + T * 0.018) % 2 + 3) % 2 - 1; const sq = Math.sqrt(Math.max(0, 1 - x * x));
+    c.fillStyle = 'rgba(64,196,140,.42)'; c.beginPath(); c.ellipse(cx + x * R, cy + ly * R, rx * R * sq + 1, ry * R, 0, 0, 7); c.fill();
+    c.fillStyle = 'rgba(232,196,120,.18)'; c.beginPath(); c.ellipse(cx + x * R + rx * R * sq * 0.3, cy + ly * R, rx * R * sq * 0.5 + 0.5, ry * R * 0.5, 0, 0, 7); c.fill();
+  });
+  c.strokeStyle = 'rgba(255,255,255,.08)'; c.lineWidth = 1;
+  for (let i = -2; i <= 2; i++) { c.beginPath(); c.ellipse(cx, cy + i * R * 0.38, R * Math.sqrt(1 - Math.pow(i * 0.38, 2)), R * 0.05, 0, 0, 7); c.stroke(); }
+  for (let i = 0; i < 6; i++) { const ph = (T * 0.18 + i * Math.PI / 6) % Math.PI; c.beginPath(); c.ellipse(cx, cy, Math.abs(Math.cos(ph)) * R, R, 0, 0, 7); c.stroke(); }
+  c.fillStyle = 'rgba(255,255,255,.14)';
+  [[-0.2, -0.55, 0.35], [0.3, 0.05, 0.28], [-0.5, 0.45, 0.22]].forEach(([x0, y0, ww]) => { const x = ((x0 + T * 0.028) % 2 + 3) % 2 - 1; c.beginPath(); c.ellipse(cx + x * R, cy + y0 * R, ww * R, R * 0.04, -0.1, 0, 7); c.fill(); });
+  g = c.createLinearGradient(cx - R * 0.15, 0, cx + R, 0); g.addColorStop(0, 'rgba(3,4,22,0)'); g.addColorStop(0.45, 'rgba(3,4,22,.7)'); g.addColorStop(1, 'rgba(3,4,22,.92)');
+  c.fillStyle = g; c.fillRect(cx - R, cy - R, R * 2, R * 2);
+  LIGHTS.forEach(([lx, ly], i) => { if (lx < 0.25) return; c.fillStyle = `rgba(255,196,90,${0.35 + 0.35 * Math.sin(T * 2 + i)})`; c.beginPath(); c.arc(cx + lx * R * 0.92, cy + ly * R, 1.1, 0, 7); c.fill(); });
+  c.restore();
+  c.strokeStyle = 'rgba(190,240,255,.55)'; c.lineWidth = 1.5; c.beginPath(); c.arc(cx, cy, R, Math.PI * 0.58, Math.PI * 1.42); c.stroke();
+
+  // UAE ground station marker
+  const gx = cx - R * 0.16, gy = cy - R * 0.32;
+  for (let i = 0; i < 3; i++) { const ph = ((T * 0.6 + i / 3) % 1); c.strokeStyle = hexA(C.violet, 0.6 * (1 - ph)); c.lineWidth = 1.2; c.beginPath(); c.arc(gx, gy, 3 + ph * 18, 0, 7); c.stroke(); }
+  c.fillStyle = '#fff'; c.beginPath(); c.arc(gx, gy, 2.6, 0, 7); c.fill();
+  c.font = `600 10px ${MONO}`; c.fillStyle = 'rgba(244,242,255,.85)'; c.textAlign = 'right'; c.fillText('UAE GROUND STATION', gx - 10, gy - 8);
+
+  // orbit front half
+  c.save(); c.translate(cx, cy); c.rotate(rot);
+  c.strokeStyle = 'rgba(255,255,255,.28)'; c.lineWidth = 1.2; c.setLineDash([2, 6]); c.beginPath(); c.ellipse(0, 0, a, b, 0, 0, Math.PI); c.stroke(); c.setLineDash([]);
+  c.restore();
+  drawParts(true);
+  trail(true);
+
+  // ground link beam
+  if (mode === 'GND' && sat.front) {
+    c.save(); c.setLineDash([5, 6]); c.lineDashOffset = -T * 30;
+    const lg = c.createLinearGradient(gx, gy, sat.x, sat.y); lg.addColorStop(0, hexA(C.violet, 0.9)); lg.addColorStop(1, hexA(C.magenta, 0.9));
+    c.strokeStyle = lg; c.lineWidth = 1.6; c.beginPath(); c.moveTo(gx, gy); c.lineTo(sat.x, sat.y); c.stroke(); c.restore();
+  }
+  if (sat.front) cubesat(c, sat.x, sat.y, k, mode === 'SAFE' ? C.crit : mcol, inShadow ? 1 : 0, time);
+  if (mode === 'GND' || mode === 'SAFE') for (let i = 0; i < 2; i++) { const ph = (T * 0.8 + i / 2) % 1; c.strokeStyle = hexA(mode === 'SAFE' ? C.crit : C.violet, 0.7 * (1 - ph)); c.lineWidth = 1; c.beginPath(); c.arc(sat.x, sat.y, k + ph * 26, 0, 7); c.stroke(); }
+  // satellite label
+  if (sat.front || Math.hypot(sat.x - cx, sat.y - cy) > R) {
+    c.textAlign = 'left'; c.font = `700 11px ${MONO}`; c.fillStyle = '#fff'; c.fillText('EMIRSENSE-1', sat.x + k + 10, sat.y - 4);
+    c.font = `500 10px ${MONO}`; c.fillStyle = mcol; c.fillText((MODES[mode] || { name: mode }).name.toUpperCase(), sat.x + k + 10, sat.y + 10);
+  }
+}
+
+/* ---------------- clock tick ---------------- */
+function tick() {
+  const now = performance.now();
+  $('gst').textContent = gstFmt.format(new Date());
+  $('met').textContent = hms((now - S.metStart) / 1000);
+  const age = S.last ? (now - S.lastRxAt) / 1000 : null;
+  const p = phaseOf(projT());
+  // source pill
+  let txt = 'Offline', dot = '';
+  const stale = age === null || age > (S.source === 'live' ? 8 : 5);
+  if (S.source !== 'none') {
+    if (!stale) { txt = S.source === 'sim' ? 'Simulation' : 'Live · LoRa'; dot = S.source === 'sim' ? 'sim' : 'live'; }
+    else if (S.last) { const toG = p < 3300 ? 3300 - p : PERIOD - p + 3300; txt = S.factor === 1 ? `LOS · next pass ${mmss(toG)}` : 'LOS · no signal'; dot = 'los'; }
+    else { txt = S.source === 'sim' ? 'Simulation' : 'Waiting for data'; dot = S.source === 'sim' ? 'sim' : 'los'; }
+  }
+  $('srcText').textContent = txt; $('srcDot').className = 'dot ' + dot;
+  $('cAge').textContent = age === null ? '—' : age.toFixed(0);
+  $('cLink').textContent = S.source === 'none' ? 'No ground station connected' : !S.last ? 'Waiting for first packet' : stale ? (S.factor === 1 ? 'Out of contact · data is stored on the MicroSD' : 'No signal') : 'Link up';
+  // timeline + mode
+  if (S.last) {
+    $('tlMarker').style.left = (p / PERIOD * 100) + '%';
+    $('tlMarker').dataset.t = mmss(p);
+    const md = S.mode, m = MODES[md] || { name: md, color: C.muted };
+    $('modeTitle').textContent = m.name; $('modeTitle').style.color = m.color;
+    const st = $('modeState'); st.textContent = md === 'SAFE' ? 'Commanded' : 'Active'; st.className = 'state'; st.style.color = m.color;
+    if (md === 'SAFE') $('modeNext').textContent = 'Send MODE_AUTO to resume the orbit timer.';
+    else { const i = ORDER.indexOf(modeAt(p)), nx = ORDER[(i + 1) % 4]; const toNext = (START[nx] - p + PERIOD) % PERIOD || PERIOD; $('modeNext').textContent = `Next: ${MODES[nx].name} in ${mmss(toNext / S.factor)}`; }
+    document.querySelectorAll('#modeCards .glass').forEach(cd => cd.classList.toggle('active', cd.dataset.mode === md));
+    $('sceneTag').textContent = `Orbit position · ${mmss(p)} of 90:00${S.factor === 10 ? ' · demo ×10' : ''}`;
+  }
+  const sw = $('demoSwitch'); sw.setAttribute('aria-checked', String(S.factor === 10));
+  $('cmdRule').textContent = S.factor === 10 ? 'Demo mode accepts commands at any time' : (S.mode === 'GND' && !stale ? 'Ground pass: commands are open' : 'Commands are heard only during the Ground Station pass');
+}
+
+/* ---------------- wiring ---------------- */
+document.querySelectorAll('[data-cmd]').forEach(b => b.addEventListener('click', () => sendCommand(b.dataset.cmd)));
+$('demoSwitch').addEventListener('click', () => sendCommand(S.factor === 10 ? 'DEMO_OFF' : 'DEMO_ON'));
+$('btnConnect').addEventListener('click', () => S.source === 'live' ? disconnectLive() : connectLive());
+$('btnSim').addEventListener('click', async () => { if (S.source === 'live') await disconnectLive(); resetSession('sim'); sim.start(); addLog('Simulation restarted · demo ×10', 'ok'); toast('Simulation restarted in demo mode.'); });
+let embedded = false; try { embedded = window.top !== window.self; } catch (_) { embedded = true; }
+if (embedded) { $('btnCsv').hidden = true; $('recCount').textContent += ' · CSV export works in the downloaded copy'; }
+$('btnCsv').addEventListener('click', () => {
+  const head = 'seq,time,mode,tempC,hum,press_hPa,gas_kOhm,busV,mA,mW,dhtT,dhtH,roll,pitch,gyroZ,wheelPWM,ldr,sd,rssi,snr';
+  const body = S.records.map(l => l.replace(/^ES1,/, '')).join('\n');
+  const url = URL.createObjectURL(new Blob([head + '\n' + body + '\n'], { type: 'text/csv' }));
+  const a = document.createElement('a'); a.href = url; a.download = `emirsense1_telemetry_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`;
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+});
+addEventListener('scroll', () => updateDock(), { passive: true });
+let rzT; addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(() => { sizeSky(); sizeScene(); drawCharts(); updateDock(true); }, 120); });
+
+buildTimeline();
+sizeSky(); sizeScene();
+resetSession('sim'); sim.start(); addLog('Simulation started · demo ×10', 'ok');
+renderCmds(); tick(); setInterval(tick, 250);
+requestAnimationFrame(() => updateDock(true));
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => updateDock(true));
+function frame(t) { if (!reduce) { drawSky(t); if (heroVisible) drawScene(t); } requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+})();
+
+</script>
+
+</body>
+</html>

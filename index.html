@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EmirSense-1 · 1U Environmental Monitoring CubeSat</title>
+<meta name="description" content="EmirSense-1 is a 3D-printed 1U CubeSat technology demonstrator for environmental sensing, health monitoring, attitude stabilization and LoRa telemetry, built for the SatForge competition.">
+<meta name="theme-color" content="#04030D">
+<meta property="og:title" content="EmirSense-1 · 1U CubeSat">
+<meta property="og:description" content="A 3D-printed 1U environmental monitoring CubeSat with a live mission control dashboard.">
+<meta property="og:image" content="/assets/og-image.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Reem+Kufi:wght@500;600&display=swap">
+<style>
+/* Same visual language as the mission control dashboard: deep space, glass panels, mission-mode colours. */
+:root{
+  color-scheme:dark;
+  --void:#04030D; --ink:#F4F2FF; --muted:#ABA7D2; --faint:#726E9C;
+  --glass:rgba(24,19,58,.55); --edge:rgba(255,255,255,.12); --edge-hi:rgba(255,255,255,.22);
+  --sun:#FFC24B; --cyan:#2EE6D6; --violet:#A07CFF; --eclipse:#7084E0; --magenta:#FF4FD8; --good:#3BE38B; --coral:#FF7A6B;
+  --f-display:'Unbounded','Arial Black',system-ui,sans-serif;
+  --f-body:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+  --f-ar:'Reem Kufi','Geeza Pro','Noto Kufi Arabic',sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;background:var(--void)}
+main,header{overflow-x:clip}
+body{margin:0;background:var(--void);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;overflow-x:hidden}
+a{color:inherit}
+img{max-width:100%;height:auto;display:block}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:3px;border-radius:10px}
+#sky{position:fixed;inset:0;width:100%;height:100%;z-index:-2}
+.pattern{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.06;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='.8'%3E%3Crect x='30' y='30' width='36' height='36'/%3E%3Crect x='30' y='30' width='36' height='36' transform='rotate(45 48 48)'/%3E%3Ccircle cx='48' cy='48' r='8'/%3E%3C/g%3E%3C/svg%3E");
+  -webkit-mask-image:radial-gradient(ellipse 70% 60% at 50% 40%,transparent 30%,#000 90%);mask-image:radial-gradient(ellipse 70% 60% at 50% 40%,transparent 30%,#000 90%)}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+
+/* nav */
+.nav{position:sticky;top:0;z-index:20;padding-top:14px}
+.nav .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 8px 8px 14px;border-radius:999px;background:rgba(14,11,38,.55);border:1px solid var(--edge);backdrop-filter:blur(20px) saturate(170%);-webkit-backdrop-filter:blur(20px) saturate(170%)}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;font-family:var(--f-display);font-weight:700;font-size:15px}
+.logo img{width:30px;height:30px}
+.links{display:flex;gap:4px;align-items:center}
+.links a{text-decoration:none;font-size:14px;font-weight:600;color:var(--muted);padding:8px 12px;border-radius:999px;transition:color .2s,background .2s}
+.links a:hover{color:#fff;background:rgba(255,255,255,.06)}
+.links a.cta{color:#0A0626;background:linear-gradient(120deg,var(--cyan),var(--violet) 55%,var(--magenta))}
+@media (max-width:760px){.links a:not(.cta){display:none}}
+
+/* hero */
+.hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:40px;align-items:center;padding-block:72px 56px}
+.kicker{display:flex;align-items:center;gap:10px;font-family:var(--f-mono);font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan)}
+.flag{display:inline-flex;gap:2px}.flag i{width:14px;height:4px;display:block}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(46px,7vw,96px);line-height:.95;letter-spacing:-.02em;margin:18px 0 12px;white-space:nowrap;
+  background:linear-gradient(100deg,#fff 0%,#E9E3FF 40%,var(--cyan) 72%,var(--magenta) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.ar{font-family:var(--f-ar);color:var(--sun);font-size:24px;margin:0 0 16px}
+.lead{color:var(--muted);font-size:18.5px;max-width:52ch;margin:0 0 28px}
+.btns{display:flex;flex-wrap:wrap;gap:12px}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:14px 22px;border-radius:999px;font-weight:700;font-size:15px;text-decoration:none;border:1px solid var(--edge-hi);background:rgba(255,255,255,.07);transition:transform .2s,filter .2s,background .2s}
+.btn:hover{transform:translateY(-2px);background:rgba(255,255,255,.12)}
+.btn.primary{background:linear-gradient(120deg,var(--cyan),var(--violet) 55%,var(--magenta));color:#0A0626;border-color:transparent}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn svg{width:18px;height:18px}
+.hero-art{position:relative;aspect-ratio:1/1;max-width:520px;width:100%;justify-self:center}
+.hero-art .halo{position:absolute;inset:6%;border-radius:50%;background:radial-gradient(circle,rgba(160,124,255,.35),rgba(46,230,214,.12) 45%,transparent 70%)}
+.hero-art .ring{position:absolute;inset:-4% -10%;border:1.5px solid rgba(46,230,214,.35);border-radius:50%;transform:rotateX(70deg) rotateZ(-18deg)}
+.hero-art .ring.r2{inset:4% -2%;border-color:rgba(255,79,216,.35);border-style:dashed;transform:rotateX(72deg) rotateZ(14deg)}
+.hero-art img{position:relative;width:78%;margin:11% auto 0;filter:drop-shadow(0 30px 60px rgba(0,0,0,.6));animation:float 7s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-14px) rotate(1deg)}}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:8px}
+.stat{padding:16px 18px;border-radius:18px;background:var(--glass);border:1px solid var(--edge);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.stat b{display:block;font-family:var(--f-mono);font-weight:500;font-size:24px;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+@media (max-width:900px){.hero{grid-template-columns:1fr;padding-block:40px}.hero-art{order:-1;max-width:360px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}h1{font-size:clamp(32px,10.5vw,72px)}}
+
+/* sections */
+section{padding-block:72px 16px;scroll-margin-top:80px}
+.head{max-width:720px;margin-bottom:30px}
+.tag{font-family:var(--f-mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;display:inline-flex;gap:8px;align-items:center}
+.tag::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 12px currentColor}
+h2{font-family:var(--f-display);font-weight:700;font-size:clamp(28px,4vw,44px);line-height:1.08;margin:10px 0 12px;text-wrap:balance}
+.head p{color:var(--muted);margin:0;font-size:17px}
+.glass{background:var(--glass);border:1px solid var(--edge);border-radius:28px;padding:26px;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);min-width:0}
+.grid{display:grid;gap:18px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:900px){.g2{grid-template-columns:1fr}.g4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:520px){.g4{grid-template-columns:1fr}}
+.mode{border-top:3px solid var(--c)}
+.mode h3{margin:10px 0 4px;font-size:18px}
+.mode p{margin:0;color:var(--muted);font-size:14.5px}
+.mode .min{font-family:var(--f-mono);font-size:13px;color:var(--c)}
+.objective{font-size:19px;line-height:1.55;margin:0}
+ul.ticks{list-style:none;padding:0;margin:18px 0 0;display:grid;gap:8px}
+ul.ticks li{display:flex;gap:10px;align-items:baseline}
+ul.ticks li::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--cyan);transform:rotate(45deg);flex:none;margin-top:8px}
+.subs{display:grid;gap:10px;margin:0}
+.subs div{display:grid;grid-template-columns:130px 1fr;gap:12px;padding:10px 0;border-bottom:1px solid var(--edge)}
+.subs dt{font-family:var(--f-mono);font-weight:500;font-size:13px;letter-spacing:.06em}
+.subs dd{margin:0;color:var(--ink)}
+.figure{border-radius:22px;overflow:hidden;border:1px solid var(--edge-hi);background:#0A0826}
+.figure.light{background:#F7F6FB;padding:14px}
+figcaption{font-size:14px;color:var(--muted);margin-top:12px;font-style:italic}
+.cut{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;align-items:center}
+@media (max-width:900px){.cut{grid-template-columns:1fr}}
+.budget .big{font-family:var(--f-mono);font-size:44px;font-weight:500;line-height:1.1}
+.budget .big small{font-size:16px;color:var(--muted);margin-left:6px}
+.meter{height:12px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:14px}
+.meter i{display:block;height:100%;border-radius:999px}
+.budget p{color:var(--muted);font-size:14px;margin:12px 0 0}
+pre{margin:0;padding:18px;border-radius:16px;background:rgba(0,0,0,.4);border:1px solid var(--edge);overflow-x:auto;font-family:var(--f-mono);font-size:13px;color:var(--cyan);line-height:1.7}
+.feature-list{display:grid;gap:14px;margin:18px 0 0;padding:0;list-style:none}
+.feature-list li{padding:14px 16px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid var(--edge)}
+.feature-list b{display:block;font-size:15px}
+.feature-list span{color:var(--muted);font-size:14px}
+.final{text-align:center;padding:56px 26px;background:linear-gradient(135deg,rgba(46,230,214,.12),rgba(160,124,255,.16) 50%,rgba(255,79,216,.12))}
+.final h2{margin-top:0}
+.final p{color:var(--muted);max-width:56ch;margin:0 auto 26px}
+.final .btns{justify-content:center}
+footer{padding-block:56px 40px;color:var(--faint);font-size:13.5px}
+footer .row{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:center;border-top:1px solid var(--edge);padding-top:24px}
+footer a{color:var(--muted)}
+.reveal{transition:opacity .8s ease,transform .8s cubic-bezier(.2,.7,.2,1)}
+.js .reveal:not(.in){opacity:0;transform:translateY(28px)}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.hero-art img{animation:none}.js .reveal:not(.in){opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<canvas id="sky" aria-hidden="true"></canvas>
+<div class="pattern" aria-hidden="true"></div>
+
+<header class="nav">
+  <div class="wrap">
+    <nav class="bar" aria-label="Main">
+      <a class="logo" href="/"><img src="/assets/favicon.svg" alt="">EmirSense-1</a>
+      <div class="links">
+        <a href="#mission">Mission</a>
+        <a href="#spacecraft">Spacecraft</a>
+        <a href="#budgets">Budgets</a>
+        <a href="#ground">Ground segment</a>
+        <a class="cta" href="/dashboard/">Open dashboard</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <section class="hero" aria-labelledby="title">
+      <div>
+        <span class="kicker"><span class="flag" aria-hidden="true"><i style="background:#00B36B"></i><i style="background:#fff"></i><i style="background:#1A1A1A"></i><i style="background:#FF3B5C"></i></span>SatForge · 1U CubeSat</span>
+        <h1 id="title">EmirSense&#8209;1</h1>
+        <p class="ar" lang="ar" dir="rtl" style="text-align:left">مهمة الرصد البيئي</p>
+        <p class="lead">A 3D-printed 1U CubeSat technology demonstrator for environmental sensing, spacecraft health monitoring, attitude stabilization, onboard data storage and LoRa telemetry.</p>
+        <div class="btns">
+          <a class="btn primary" href="/dashboard/">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>
+            Launch mission control</a>
+          <a class="btn" href="https://github.com/hussainujjainwala090-debug/EmirSense-1" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.56-.29-5.25-1.28-5.25-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.04 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.58.23 2.75.11 3.04.74.81 1.19 1.83 1.19 3.09 0 4.41-2.7 5.38-5.27 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
+            View source</a>
+        </div>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <div class="halo"></div><div class="ring"></div><div class="ring r2"></div>
+        <img src="/assets/cubesat-exterior.png" alt="" width="844" height="900">
+      </div>
+    </section>
+    <div class="stats reveal">
+      <div class="stat"><b>1U</b><span>100 × 100 × 100 mm</span></div>
+      <div class="stat"><b>0.119 kg</b><span>Component mass</span></div>
+      <div class="stat"><b>+7.6%</b><span>Power margin</span></div>
+      <div class="stat"><b>433 MHz</b><span>LoRa downlink</span></div>
+    </div>
+
+    <section id="mission">
+      <div class="head reveal">
+        <span class="tag" style="color:var(--sun)">Mission</span>
+        <h2>One 90-minute orbit, four operating modes</h2>
+        <p>EmirSense-1 switches modes on a timer, so power-hungry parts like the reaction wheel and LoRa radio only run when the mission needs them.</p>
+      </div>
+      <div class="grid g2 reveal" style="margin-bottom:18px">
+        <div class="glass">
+          <p class="objective">Design a 1U CubeSat technology demonstrator capable of:</p>
+          <ul class="ticks">
+            <li>Environmental sensing with a BME680 payload</li>
+            <li>Spacecraft health monitoring (power, temperature, light)</li>
+            <li>Attitude stabilization with a reaction wheel</li>
+            <li>Onboard data storage on MicroSD</li>
+            <li>Wireless telemetry and commanding over LoRa</li>
+          </ul>
+        </div>
+        <div class="glass">
+          <span class="tag" style="color:var(--cyan)">Data link</span>
+          <p style="margin:10px 0 14px;color:var(--muted)">Each telemetry line is plain CSV, so it is easy to log, debug and replay.</p>
+          <pre>ES1,seq,time,mode,tempC,hum,press_hPa,gas_kOhm,
+busV,mA,mW,dhtT,dhtH,roll,pitch,gyroZ,
+wheelPWM,ldr,sd[,rssi,snr]
+
+CMD,id,action  →  ACK,id,OK | ACK,id,REJECTED</pre>
+        </div>
+      </div>
+      <div class="grid g4 reveal">
+        <div class="glass mode" style="--c:var(--sun)"><span class="min">30 min</span><h3>Sun Pointing</h3><p>Solar charging and attitude stabilization.</p></div>
+        <div class="glass mode" style="--c:var(--cyan)"><span class="min">25 min</span><h3>Payload</h3><p>BME680 collects environmental data.</p></div>
+        <div class="glass mode" style="--c:var(--violet)"><span class="min">10 min</span><h3>Ground Station</h3><p>LoRa telemetry downlink and command uplink.</p></div>
+        <div class="glass mode" style="--c:var(--eclipse)"><span class="min">25 min</span><h3>Safe / Eclipse</h3><p>Payload and reaction wheel off to save power.</p></div>
+      </div>
+    </section>
+
+    <section id="spacecraft">
+      <div class="head reveal">
+        <span class="tag" style="color:var(--violet)">Spacecraft</span>
+        <h2>Built to be printed, assembled and serviced</h2>
+        <p>A PETG frame with four corner rails and removable side panels. Three electronics trays stack on M3 rods, so the whole stack lifts out for wiring and repairs.</p>
+      </div>
+      <div class="cut glass reveal">
+        <figure style="margin:0">
+          <img src="/assets/cubesat-cutaway.png" alt="Cutaway render of EmirSense-1 showing three stacked trays inside the red frame" width="865" height="900">
+          <figcaption>Cutaway from the Fusion 360 model: ADCS tray, EPS tray and CDHS/sensor tray.</figcaption>
+        </figure>
+        <dl class="subs">
+          <div><dt style="color:var(--cyan)">CDHS</dt><dd>ESP32-WROOM-32 · MicroSD</dd></div>
+          <div><dt style="color:var(--sun)">PAYLOAD</dt><dd>BME680 temperature, humidity, pressure, gas</dd></div>
+          <div><dt style="color:var(--violet)">ADCS</dt><dd>MPU6050 · 130 DC reaction wheel · TB6612FNG</dd></div>
+          <div><dt style="color:var(--coral)">EPS</dt><dd>5 V solar panel · 3.7 V LiPo · CN3065 · MT3608 · INA219</dd></div>
+          <div><dt style="color:#5AB0FF">COMMS</dt><dd>SX1278 LoRa 433 MHz + Wi-Fi</dd></div>
+          <div><dt style="color:#FF9F43">THERMAL</dt><dd>DHT11 internal temperature</dd></div>
+          <div><dt style="color:#FFE066">SUN SENSOR</dt><dd>KY-018 LDR</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section id="budgets">
+      <div class="head reveal">
+        <span class="tag" style="color:var(--good)">Budgets</span>
+        <h2>Comfortably inside the 1U limits</h2>
+        <p>Figures from the MADAR mission design tool. They are the orbital design case; the bench prototype uses a smaller physical solar panel.</p>
+      </div>
+      <div class="grid g2 reveal">
+        <div class="glass budget">
+          <span class="tag" style="color:var(--cyan)">Mass</span>
+          <div class="big">0.119 kg<small>of 1.33 kg</small></div>
+          <div class="meter"><i style="width:8.9%;background:var(--cyan)"></i></div>
+          <p>8.9% of the 1U limit used · about 1.211 kg of margin. Preliminary component-level estimate.</p>
+        </div>
+        <div class="glass budget">
+          <span class="tag" style="color:var(--sun)">Power</span>
+          <div class="big" style="color:var(--sun)">+0.156 W<small>margin</small></div>
+          <div class="meter"><i style="width:100%;background:var(--sun)"></i></div>
+          <div class="meter" style="margin-top:8px"><i style="width:92.9%;background:var(--coral)"></i></div>
+          <p>2.20 W solar generation against 2.044 W peak load · about 2.017 Wh per orbit.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="ground">
+      <div class="head reveal">
+        <span class="tag" style="color:var(--magenta)">Ground segment</span>
+        <h2>Mission control in the browser</h2>
+        <p>The dashboard reads telemetry from a USB-connected LoRa ground station and sends commands back. A built-in simulation runs the full orbit so it works without hardware.</p>
+      </div>
+      <div class="grid g2 reveal">
+        <figure style="margin:0">
+          <a class="figure" href="/dashboard/" style="display:block"><img src="/assets/dashboard-preview.jpg" alt="EmirSense-1 mission control dashboard showing the CubeSat orbiting Earth with live readouts" width="1600" height="804"></a>
+          <figcaption>Live mission dashboard: environmental, power, thermal and attitude telemetry.</figcaption>
+        </figure>
+        <ul class="feature-list">
+          <li><b>Live orbit view</b><span>The CubeSat flies around Earth at its real orbit phase, dims in eclipse and links to the UAE ground station during passes.</span></li>
+          <li><b>Two-way commanding</b><span>Eight commands with ACK tracking and one automatic resend.</span></li>
+          <li><b>Demo ×10 mode</b><span>Runs the 90-minute orbit in 9 minutes for judges.</span></li>
+          <li><b>Web Serial link</b><span>Plug in the ground ESP32 and click Connect in Chrome or Edge. No install needed.</span></li>
+        </ul>
+      </div>
+      <div class="grid g2 reveal" style="margin-top:28px;align-items:center">
+        <figure style="margin:0">
+          <div class="figure light"><img src="/assets/tinkercad-circuit.png" alt="Tinkercad circuit with Arduino, sensors, motor driver and DC motor" width="745" height="359"></div>
+          <figcaption>Tinkercad simulation of payload, EPS monitoring, ADCS, thermal sensing and mission-mode control.</figcaption>
+        </figure>
+        <div>
+          <span class="tag" style="color:var(--sun)">Simulation</span>
+          <h3 style="font-family:var(--f-display);font-size:24px;margin:10px 0 8px">Tested in Tinkercad first</h3>
+          <p style="color:var(--muted);margin:0">An Arduino stand-in for the ESP32 runs the mode logic, reads analogue sensor substitutes and drives the reaction-wheel motor through an H-bridge before any hardware is wired.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="glass final reveal">
+        <h2>See EmirSense-1 fly</h2>
+        <p>Open the dashboard to watch a full simulated orbit, send commands and see the telemetry update live.</p>
+        <div class="btns"><a class="btn primary" href="/dashboard/">Launch mission control</a></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="row">
+      <span>EmirSense-1 · SatForge 1U CubeSat competition · UAE</span>
+      <span><a href="https://github.com/hussainujjainwala090-debug/EmirSense-1" target="_blank" rel="noopener">GitHub</a> · <a href="/dashboard/">Dashboard</a></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if ('IntersectionObserver' in window && !reduce) {
+    document.documentElement.classList.add('js');
+    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
+    document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+  }
+  const c = document.getElementById('sky'), x = c.getContext('2d');
+  let W, H, stars = [], neb;
+  function size() {
+    const d = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight;
+    c.width = W * d; c.height = H * d; x.setTransform(d, 0, 0, d, 0, 0);
+    stars = Array.from({ length: Math.round(W * H / 2600) }, () => ({ x: Math.random() * W, y: Math.random() * H * 1.5, r: Math.random() < .92 ? Math.random() * 1.1 + .25 : Math.random() * 1.5 + 1.1, l: [.06, .15, .28][Math.floor(Math.random() * 3)], p: Math.random() * 6.28, s: .5 + Math.random() * 1.4, c: Math.random() < .12 ? '#2EE6D6' : Math.random() < .1 ? '#FFC24B' : '#ffffff' }));
+    neb = document.createElement('canvas'); neb.width = W; neb.height = H; const n = neb.getContext('2d');
+    [[.1, .15, .55, 'rgba(160,124,255,.24)'], [.9, .1, .5, 'rgba(255,79,216,.16)'], [.75, .8, .6, 'rgba(46,230,214,.12)'], [.2, .95, .5, 'rgba(0,179,107,.1)']].forEach(([a, b, r, col]) => { const g = n.createRadialGradient(a * W, b * H, 0, a * W, b * H, r * Math.max(W, H)); g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)'); n.fillStyle = g; n.fillRect(0, 0, W, H); });
+  }
+  function draw(t) {
+    x.fillStyle = '#04030D'; x.fillRect(0, 0, W, H); x.drawImage(neb, Math.sin(t / 30000) * 24, Math.sin(t / 22000) * 14);
+    const py = scrollY;
+    for (const s of stars) {
+      const y = ((s.y - py * s.l) % (H * 1.5) + H * 1.5) % (H * 1.5) - H * .25; if (y < -3 || y > H + 3) continue;
+      x.globalAlpha = reduce ? .8 : .45 + .55 * (.5 + .5 * Math.sin(t / 1000 * s.s + s.p)); x.fillStyle = s.c; x.beginPath(); x.arc(s.x, y, s.r, 0, 7); x.fill();
+    }
+    x.globalAlpha = 1;
+    if (!reduce) requestAnimationFrame(draw);
+  }
+  size(); addEventListener('resize', size); if (reduce) addEventListener('scroll', () => draw(0), { passive: true });
+  requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>
